@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+
+# Local virtual environments
+.venv/
+venv/
+env/
+
+# Editor/OS noise
+.DS_Store
+Thumbs.db
+
+# Smoke-test artifacts (keep final artifacts)
+artifacts/*smoke*
+artifacts/dqn_history_smoke*.csv
+
