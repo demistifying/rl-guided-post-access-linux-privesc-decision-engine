@@ -146,7 +146,20 @@ class DQNAgent:
     def load(self, path: str) -> None:
         # PyTorch >=2.6 defaults to weights_only=True, which blocks custom dataclasses.
         checkpoint = torch.load(path, map_location=self.device, weights_only=False)
-        state_dict = checkpoint["online_net"] if isinstance(checkpoint, dict) else checkpoint
+
+        state_dict = checkpoint
+        optimization_steps = 0
+
+        if isinstance(checkpoint, dict):
+            if "online_net" in checkpoint and isinstance(checkpoint["online_net"], dict):
+                # New checkpoint format saved by this project.
+                state_dict = checkpoint["online_net"]
+                optimization_steps = int(checkpoint.get("optimization_steps", 0))
+            elif "state_dict" in checkpoint and isinstance(checkpoint["state_dict"], dict):
+                # Common compatibility format used by some wrappers.
+                state_dict = checkpoint["state_dict"]
+                optimization_steps = int(checkpoint.get("optimization_steps", 0))
+
         self.online_net.load_state_dict(state_dict)
         self.hard_update_target()
-        self.optimization_steps = checkpoint.get("optimization_steps", 0) if isinstance(checkpoint, dict) else 0
+        self.optimization_steps = optimization_steps

@@ -1,36 +1,45 @@
+"""
+One-shot train + evaluate pipeline.
+
+Usage:
+    python main.py
+    python main.py --skip-training --model-path artifacts/dqn_model.pt
+    python main.py --train-episodes 5000 --seeds 7,42,1337 --episodes-per-seed 500
+"""
 from __future__ import annotations
 
 import argparse
 from typing import List
 
-from postex_agent.rl.evaluate_dqn import evaluate, parse_seeds, print_report
 from postex_agent.rl.train_dqn import train
+from postex_agent.rl.evaluate_dqn import evaluate, parse_seeds, print_report
 
 
-def _build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Train and evaluate postex_agent DQN.")
-    parser.add_argument("--seeds", type=str, default="7,42,1337")
-    parser.add_argument("--episodes-per-seed", type=int, default=1_000)
-    parser.add_argument("--train-episodes", type=int, default=10_000)
-    parser.add_argument("--train-seed", type=int, default=42)
-    parser.add_argument("--max-steps", type=int, default=20)
-    parser.add_argument("--model-path", type=str, default="artifacts/dqn_model.pt")
-    parser.add_argument("--history-path", type=str, default="artifacts/dqn_training_history.csv")
-    parser.add_argument("--log-interval", type=int, default=500)
-    parser.add_argument("--bootstrap-samples", type=int, default=5_000)
-    parser.add_argument("--skip-training", action="store_true")
-    parser.add_argument("--device", type=str, default=None)
-    parser.add_argument("--report-path", type=str, default="artifacts/eval_report.json")
-    return parser
+def _build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(description="Train and evaluate the postex_agent DQN.")
+    p.add_argument("--train-episodes",    type=int,   default=10_000)
+    p.add_argument("--train-seed",        type=int,   default=42)
+    p.add_argument("--max-steps",         type=int,   default=20)
+    p.add_argument("--model-path",        type=str,   default="artifacts/dqn_model.pt")
+    p.add_argument("--history-path",      type=str,   default="artifacts/dqn_training_history.csv")
+    p.add_argument("--log-interval",      type=int,   default=500)
+    p.add_argument("--seeds",             type=str,   default="7,42,1337")
+    p.add_argument("--episodes-per-seed", type=int,   default=1_000)
+    p.add_argument("--bootstrap-samples", type=int,   default=5_000)
+    p.add_argument("--report-path",       type=str,   default="artifacts/eval_report.json")
+    p.add_argument("--device",            type=str,   default=None)
+    p.add_argument("--skip-training",     action="store_true")
+    return p
 
 
 def main() -> None:
-    parser = _build_arg_parser()
-    args = parser.parse_args()
+    args  = _build_parser().parse_args()
     seeds: List[int] = parse_seeds(args.seeds)
 
     if not args.skip_training:
-        print("=== Training DQN ===")
+        print("=" * 60)
+        print("Training DQN")
+        print("=" * 60)
         _, summary = train(
             episodes=args.train_episodes,
             seed=args.train_seed,
@@ -40,11 +49,13 @@ def main() -> None:
             log_interval=args.log_interval,
             device=args.device,
         )
-        print("=== Training Summary ===")
-        for key, value in summary.items():
-            print(f"{key}: {value}")
+        print("\nTraining summary:")
+        for k, v in summary.items():
+            print(f"  {k}: {v:.4f}" if isinstance(v, float) else f"  {k}: {v}")
 
-    print("=== Evaluation ===")
+    print("\n" + "=" * 60)
+    print("Evaluating")
+    print("=" * 60)
     report = evaluate(
         model_path=args.model_path,
         seeds=seeds,
@@ -59,4 +70,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

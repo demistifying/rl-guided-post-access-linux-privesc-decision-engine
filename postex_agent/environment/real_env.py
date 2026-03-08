@@ -1,7 +1,7 @@
 """Live command execution environment wrapper for post-access decision support."""
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 import numpy as np
 
@@ -19,48 +19,68 @@ StepResult = Tuple[np.ndarray, float, bool, Dict[str, Any]]
 
 class RealEnv:
     """
-    Minimal gym-style wrapper over a real session.
-    Reward shaping is not used in live mode; returns 0.0 reward and state transitions.
+    Wraps a live shell session with the same step() interface as SimulationEnv.
+    No reward shaping in live mode — always returns 0.0 reward.
+    The RL policy drives action selection; this class handles execution.
     """
 
-    def __init__(self, session: BaseSession, max_steps: int = 30, log_path: str = "logs/execution.jsonl"):
-        self.executor = CommandExecutor(session=session, log_path=log_path)
+    def __init__(
+        self,
+        session:   BaseSession,
+        max_steps: int = 30,
+        log_path:  str = "logs/execution.jsonl",
+    ):
+        self.executor  = CommandExecutor(session=session, log_path=log_path)
         self.max_steps = max_steps
-        self.state = HostState()
-        self.steps = 0
-        self.done = False
+        self.state     = HostState()
+        self.steps     = 0
+        self.done      = False
 
     def reset(self) -> np.ndarray:
         self.state = HostState()
         self.steps = 0
-        self.done = False
+        self.done  = False
         return self.state.to_vector()
 
     def step(self, action: int | Action) -> StepResult:
         if self.done:
-            raise RuntimeError("Environment is done. Call reset().")
-        action_enum = Action(int(action))
-        commands = get_commands(action_enum)
+            raise RuntimeError("Episode is done. Call reset().")
 
-        output = ""
-        exec_results = []
+        action_enum = Action(int(action))
+        # Pass current state so exploit actions get contextual one-liners
+        commands    = get_commands(action_enum, state=self.state)
+
+        combined_output = ""
+        exec_results    = []
+
         for command in commands:
+            # Skip comment-only informational lines
+            if command.strip().startswith("#"):
+                continue
             result = self.executor.execute(command=command, action_name=action_enum.name)
             exec_results.append(result)
-            output += (result.get("output") or "") + "\n"
+            # result["output"] is always a str — CommandExecutor guarantees this
+            combined_output += result["output"] + "\n"
 
-        parsed = parse_output(action_enum, output)
+        parsed = parse_output(action_enum, combined_output)
         update_state(self.state, action_enum, parsed)
 
         self.steps += 1
-        if action_enum == Action.STOP or self.state.current_privilege == 1 or self.steps >= self.max_steps:
+        if (
+            action_enum == Action.STOP
+            or self.state.current_privilege == 1
+            or self.steps >= self.max_steps
+        ):
             self.done = True
 
         info: Dict[str, Any] = {
-            "action": action_enum.name,
-            "commands": commands,
+            "action":    action_enum.name,
+            "commands":  commands,
             "execution": exec_results,
-            "parsed": parsed,
+            "parsed":    parsed,
         }
         return self.state.to_vector(), 0.0, self.done, info
 
+    @property
+    def current_state(self) -> HostState:
+        return self.state
