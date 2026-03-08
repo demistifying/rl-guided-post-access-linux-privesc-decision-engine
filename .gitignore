@@ -1,16 +1,48 @@
+# Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
 
-# Local virtual environments
+# Virtual environments
 .venv/
 venv/
 env/
+ENV/
 
-# Editor/OS noise
+# IDE / OS
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
 
-# Smoke-test artifacts (keep final artifacts)
+# Trained model artifacts (large binaries - use Git LFS or exclude)
+artifacts/dqn_model.pt
+
+# Keep CSV training history and eval reports
+!artifacts/dqn_training_history.csv
+!artifacts/eval_report.json
+
+# Keep research outputs as needed
+!artifacts/final_report.json
+
+# Session logs (contain target output)
+logs/
+
+# Credentials / keys
+*.pem
+*.key
+id_rsa
+id_ed25519
+
+# Smoke-test artifacts
 artifacts/*smoke*
 artifacts/dqn_history_smoke*.csv
-
