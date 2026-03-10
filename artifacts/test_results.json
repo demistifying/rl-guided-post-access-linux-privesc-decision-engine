@@ -1,0 +1,125 @@
+{
+  "timestamp": "2026-03-10T19:39:47.741577+00:00",
+  "total": 28,
+  "passed": 28,
+  "failed": 0,
+  "tests": [
+    {
+      "name": "State: to_vector round-trip",
+      "status": "pass"
+    },
+    {
+      "name": "State: found_vectors",
+      "status": "pass"
+    },
+    {
+      "name": "Actions: ACTION_SPACE_SIZE = 16",
+      "status": "pass"
+    },
+    {
+      "name": "Parser: SudoParser detects NOPASSWD",
+      "status": "pass"
+    },
+    {
+      "name": "Parser: SudoParser no sudo",
+      "status": "pass"
+    },
+    {
+      "name": "Parser: SuidParser finds exploitable bin",
+      "status": "pass"
+    },
+    {
+      "name": "Parser: SuidParser empty output",
+      "status": "pass"
+    },
+    {
+      "name": "Parser: CapabilityParser detects cap_setuid",
+      "status": "pass"
+    },
+    {
+      "name": "Parser: CronParser detects cron jobs",
+      "status": "pass"
+    },
+    {
+      "name": "Parser: KernelParser identifies Dirty Pipe",
+      "status": "pass"
+    },
+    {
+      "name": "Parser: CredentialParser finds password in env",
+      "status": "pass"
+    },
+    {
+      "name": "Parser: OSParser extracts kernel version",
+      "status": "pass"
+    },
+    {
+      "name": "Parser: UserParser extracts uid/username",
+      "status": "pass"
+    },
+    {
+      "name": "Parser: UserParser detects root",
+      "status": "pass"
+    },
+    {
+      "name": "CommandLibrary: get_commands returns lists",
+      "status": "pass"
+    },
+    {
+      "name": "CommandLibrary: safety blocklist blocks rm -rf",
+      "status": "pass"
+    },
+    {
+      "name": "ParserRegistry: correct parser returned per action",
+      "status": "pass"
+    },
+    {
+      "name": "StateBuilder: updates state from parsed sudo result",
+      "status": "pass"
+    },
+    {
+      "name": "StateBuilder: updates os info",
+      "status": "pass"
+    },
+    {
+      "name": "SimulationEnv: reset returns correct state shape",
+      "status": "pass"
+    },
+    {
+      "name": "SimulationEnv: identify actions give reward and update state",
+      "status": "pass"
+    },
+    {
+      "name": "SimulationEnv: full episode with baseline policy",
+      "status": "pass"
+    },
+    {
+      "name": "SimulationEnv: action space matches ACTION_SPACE_SIZE",
+      "status": "pass"
+    },
+    {
+      "name": "SimulationEnv: redundant check gives negative reward delta",
+      "status": "pass"
+    },
+    {
+      "name": "SimulationEnv: premature escalation penalty",
+      "status": "pass"
+    },
+    {
+      "name": "SimulationEnv: stop terminates episode",
+      "status": "pass"
+    },
+    {
+      "name": "BaselinePolicy: respects correct ordering",
+      "status": "pass"
+    },
+    {
+      "name": "BaselinePolicy: exploits found vector after enumeration",
+      "status": "pass"
+    }
+  ],
+  "baseline_metrics": {
+    "episodes": 200,
+    "success_rate": 0.835,
+    "avg_steps": 10.7
+  }
+}

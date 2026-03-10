@@ -1,4 +1,4 @@
-﻿"""
+"""
 Integration test suite for postex_agent.
 Tests core modules, parsers, simulation environment, and baseline policy.
 No PyTorch required.
@@ -9,8 +9,10 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+import json
 import traceback
-from typing import Callable, List, Tuple
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
 
@@ -19,6 +21,7 @@ FAIL = "\033[31m[FAIL]\033[0m"
 HEAD = "\033[36m[TEST]\033[0m"
 
 results: List[Tuple[str, bool, str]] = []
+baseline_metrics: Dict[str, Any] = {}
 
 
 def test(name: str) -> Callable:
@@ -333,6 +336,11 @@ def _():
     success_rate = successes / n_episodes
     avg_steps    = total_steps / n_episodes
     print(f"\n    Baseline over {n_episodes} eps: success={success_rate:.2%} avg_steps={avg_steps:.2f}")
+    baseline_metrics.update({
+        "episodes": n_episodes,
+        "success_rate": round(success_rate, 4),
+        "avg_steps": round(avg_steps, 2),
+    })
     assert success_rate >= 0.30, f"Baseline success rate too low: {success_rate:.2%}"
     assert avg_steps <= 20
 
@@ -441,9 +449,36 @@ def main() -> None:
             if not ok:
                 print(f"    [FAIL] {name}")
                 print(f"      {tb.strip().splitlines()[-1]}")
-        sys.exit(1)
     else:
         print("\033[32m\n  All tests passed! [OK]\033[0m")
+
+    # ── Write JSON report ─────────────────────────────────────────────
+    report: Dict[str, Any] = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "total": len(results),
+        "passed": passed,
+        "failed": failed,
+        "tests": [
+            {
+                "name": name,
+                "status": "pass" if ok else "fail",
+                **(  {"error": tb.strip().splitlines()[-1]} if not ok else {}  ),
+            }
+            for name, ok, tb in results
+        ],
+    }
+    if baseline_metrics:
+        report["baseline_metrics"] = baseline_metrics
+
+    artifacts_dir = os.path.join(os.path.dirname(__file__), "..", "artifacts")
+    os.makedirs(artifacts_dir, exist_ok=True)
+    report_path = os.path.join(artifacts_dir, "test_results.json")
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
+    print(f"\n  Report written to {report_path}")
+
+    if failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

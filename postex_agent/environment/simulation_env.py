@@ -16,8 +16,9 @@ from postex_agent.core.actions import (
     ACTION_SPACE_SIZE,
     VECTOR_BY_CHECK_ACTION,
     VECTOR_BY_EXPLOIT_ACTION,
+    compute_action_mask,
 )
-from postex_agent.core.state import HostState, VECTOR_KEYS
+from postex_agent.core.state import HostState, VECTOR_KEYS, MAX_RICHNESS
 
 
 # ─── Host ground-truth probabilities ────────────────────────────────────────
@@ -52,6 +53,24 @@ VECTOR_RISK_PENALTIES: Dict[str, float] = {
     "kernel":       0.45,
 }
 
+# Mean item counts when a vector is viable (used for richness simulation)
+VECTOR_MEAN_ITEMS: Dict[str, float] = {
+    "sudo":         2.0,
+    "suid":         5.0,
+    "capabilities": 2.0,
+    "writable_path": 4.0,
+    "cron":         3.0,
+    "credentials":  2.0,
+    "kernel":       1.0,
+}
+
+# Credential quality distribution (probabilities for each type)
+CRED_QUALITY_LEVELS = [
+    (0.33, 0.50),   # hash — 50% chance
+    (0.66, 0.30),   # plaintext password — 30% chance
+    (1.00, 0.20),   # private key / root password — 20% chance
+]
+
 LOWEST_RISK_ORDER: List[str] = sorted(
     VECTOR_KEYS, key=lambda v: VECTOR_RISK_PENALTIES[v]
 )
@@ -69,6 +88,9 @@ R_EXPLOIT_WITHOUT_ENUM   = -2.0
 
 MAX_EPISODE_STEPS = 20
 
+# Maximum possible cumulative risk (for normalisation)
+MAX_CUMULATIVE_RISK = sum(VECTOR_RISK_PENALTIES.values())
+
 StepResult = Tuple[np.ndarray, float, bool, Dict[str, Any]]
 
 
@@ -76,6 +98,9 @@ StepResult = Tuple[np.ndarray, float, bool, Dict[str, Any]]
 class SimulatedHost:
     """Hidden ground truth for one simulated target."""
     vectors: Dict[str, bool] = field(default_factory=dict)
+    item_counts: Dict[str, int] = field(default_factory=dict)
+    cred_type_quality: float = 0.0     # quality of credentials (if any)
+    cred_type_count: int = 0           # number of credentials found
 
     def is_viable(self, vector: str) -> bool:
         return self.vectors.get(vector, False)
@@ -92,13 +117,59 @@ def _sample_host(rng: random.Random) -> SimulatedHost:
     # Guarantee at least one viable vector (avoids unsolvable episodes)
     if not any(vectors.values()):
         vectors[rng.choice(VECTOR_KEYS)] = True
-    return SimulatedHost(vectors=vectors)
+
+    # Sample item counts for viable vectors
+    item_counts: Dict[str, int] = {}
+    for v in VECTOR_KEYS:
+        if vectors[v]:
+            # Poisson-distributed item count, minimum 1
+            mean = VECTOR_MEAN_ITEMS[v]
+            item_counts[v] = max(1, int(rng.gauss(mean, mean * 0.5)))
+        else:
+            item_counts[v] = 0
+
+    # Sample credential quality (if credentials exist)
+    cred_quality = 0.0
+    cred_count = 0
+    if vectors.get("credentials", False):
+        cred_count = item_counts["credentials"]
+        # Pick quality from distribution
+        roll = rng.random()
+        cumulative = 0.0
+        for quality, prob in CRED_QUALITY_LEVELS:
+            cumulative += prob
+            if roll <= cumulative:
+                cred_quality = quality
+                break
+
+    return SimulatedHost(
+        vectors=vectors,
+        item_counts=item_counts,
+        cred_type_quality=cred_quality,
+        cred_type_count=cred_count,
+    )
 
 
-def _attempt_escalation(host: SimulatedHost, vector: str, rng: random.Random) -> bool:
+def _attempt_escalation(
+    host: SimulatedHost,
+    vector: str,
+    richness: float,
+    cred_quality: float,
+    rng: random.Random,
+) -> bool:
     if not host.is_viable(vector):
         return False
-    return rng.random() < VECTOR_SUCCESS_PROBS[vector]
+    base_prob = VECTOR_SUCCESS_PROBS[vector]
+
+    if vector == "credentials":
+        # Credential success scales with quality
+        adjusted_prob = base_prob * max(cred_quality, 0.1)
+    else:
+        # Richness modulates success: more items → higher chance
+        # richness is normalised [0, 1]; scale prob by (0.5 + 0.5*richness)
+        adjusted_prob = base_prob * (0.5 + 0.5 * richness)
+
+    return rng.random() < adjusted_prob
 
 
 def _pick_best_vector(state: HostState) -> Optional[str]:
@@ -143,7 +214,9 @@ class SimulationEnv:
         self._risk_exp      = 0.0
         self._redundant     = 0
         self._esc_attempts  = 0
-        return self.state.to_vector()
+        state_vec = self.state.to_vector()
+        self._current_mask = compute_action_mask(state_vec)
+        return state_vec
 
     def step(self, action: int) -> StepResult:
         if self._done:
@@ -187,6 +260,19 @@ class SimulationEnv:
                     reward += R_DISCOVERY
                     info["discovered_vector"] = vector
 
+                    # Reveal richness
+                    raw_count = self.host.item_counts.get(vector, 0)
+                    self.state.richness[vector] = min(
+                        raw_count / MAX_RICHNESS, 1.0
+                    )
+
+                    # Reveal credential-specific info
+                    if vector == "credentials":
+                        self.state.cred_count = min(
+                            self.host.cred_type_count / MAX_RICHNESS, 1.0
+                        )
+                        self.state.cred_quality = self.host.cred_type_quality
+
         # ── Exploitation ──────────────────────────────────────────────────
         elif a in VECTOR_BY_EXPLOIT_ACTION:
             vector = VECTOR_BY_EXPLOIT_ACTION[a]
@@ -204,7 +290,12 @@ class SimulationEnv:
                 self._risk_exp    += risk
                 self._esc_attempts += 1
 
-                success = _attempt_escalation(self.host, vector, self._rng)
+                richness = self.state.richness.get(vector, 0.0)
+                cred_quality = self.state.cred_quality
+
+                success = _attempt_escalation(
+                    self.host, vector, richness, cred_quality, self._rng
+                )
                 info["escalation_vector"]  = vector
                 info["escalation_success"] = success
 
@@ -213,6 +304,8 @@ class SimulationEnv:
                     reward += R_SUCCESS_ESCALATION
                 else:
                     reward += R_FAILED_ESCALATION
+                    # Record the failure
+                    self.state.exploit_failures[vector] += 1
 
         # ── Generic ESCALATE (finds best vector automatically) ────────────
         elif a == Action.ESCALATE if hasattr(Action, "ESCALATE") else False:
@@ -224,7 +317,13 @@ class SimulationEnv:
                 reward -= risk
                 self._risk_exp    += risk
                 self._esc_attempts += 1
-                success = _attempt_escalation(self.host, vector, self._rng)
+
+                richness = self.state.richness.get(vector, 0.0)
+                cred_quality = self.state.cred_quality
+
+                success = _attempt_escalation(
+                    self.host, vector, richness, cred_quality, self._rng
+                )
                 info["escalation_vector"]  = vector
                 info["escalation_success"] = success
                 if success:
@@ -232,6 +331,7 @@ class SimulationEnv:
                     reward += R_SUCCESS_ESCALATION
                 else:
                     reward += R_FAILED_ESCALATION
+                    self.state.exploit_failures[vector] += 1
 
         # ── Verify Root ───────────────────────────────────────────────────
         elif a == Action.VERIFY_ROOT:
@@ -247,6 +347,12 @@ class SimulationEnv:
         self._steps     += 1
         self._ep_reward += reward
 
+        # ── Update temporal / risk features ────────────────────────────────
+        self.state.time_step = self._steps / self.max_steps
+        self.state.cumulative_risk = min(
+            self._risk_exp / MAX_CUMULATIVE_RISK, 1.0
+        )
+
         if self.state.current_privilege == 1:
             self._done = True
         if self._steps >= self.max_steps:
@@ -255,7 +361,10 @@ class SimulationEnv:
         if self._done:
             info["episode"] = self._episode_metrics()
 
-        return self.state.to_vector(), reward, self._done, info
+        state_vec = self.state.to_vector()
+        self._current_mask = compute_action_mask(state_vec)
+        info["action_mask"] = self._current_mask
+        return state_vec, reward, self._done, info
 
     # ── Metrics ────────────────────────────────────────────────────────────
 
@@ -277,3 +386,9 @@ class SimulationEnv:
     @property
     def action_space_size(self) -> int:
         return ACTION_SPACE_SIZE
+
+    def action_mask(self) -> np.ndarray:
+        """Return current valid-action mask (shape ACTION_SPACE_SIZE, bool)."""
+        if hasattr(self, '_current_mask'):
+            return self._current_mask
+        return compute_action_mask(self.state.to_vector())

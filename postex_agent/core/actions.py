@@ -6,6 +6,18 @@ from __future__ import annotations
 from enum import IntEnum
 from typing import Dict, List
 
+import numpy as np
+
+from postex_agent.core.state import (
+    STATE_DIM,
+    CURRENT_PRIVILEGE_IDX,
+    OS_IDENTIFIED_IDX,
+    USER_IDENTIFIED_IDX,
+    CHECK_START_IDX,
+    FOUND_START_IDX,
+    VECTOR_KEYS,
+)
+
 
 class Action(IntEnum):
     IDENTIFY_OS         = 0
@@ -74,3 +86,52 @@ ACTION_DESCRIPTIONS: Dict[Action, str] = {
     Action.VERIFY_ROOT:        "Verify root access (id, whoami)",
     Action.STOP:               "Stop execution",
 }
+
+
+# ── Action masking ────────────────────────────────────────────────────────
+
+# Pre-built lookup: CHECK action index → offset into VECTOR_KEYS
+_CHECK_ACTION_VEC_IDX: Dict[int, int] = {
+    int(a): VECTOR_KEYS.index(v)
+    for a, v in VECTOR_BY_CHECK_ACTION.items()
+}
+
+# Pre-built lookup: EXPLOIT action index → offset into VECTOR_KEYS
+_EXPLOIT_ACTION_VEC_IDX: Dict[int, int] = {
+    int(a): VECTOR_KEYS.index(v)
+    for a, v in VECTOR_BY_EXPLOIT_ACTION.items()
+}
+
+
+def compute_action_mask(state_vector: np.ndarray) -> np.ndarray:
+    """Return a boolean mask of shape (ACTION_SPACE_SIZE,).
+
+    mask[i] = True  → action i is valid in the current state
+    mask[i] = False → action i would be redundant or impossible
+    """
+    mask = np.ones(ACTION_SPACE_SIZE, dtype=np.bool_)
+
+    # IDENTIFY_OS invalid if already identified
+    if state_vector[OS_IDENTIFIED_IDX] >= 0.5:
+        mask[int(Action.IDENTIFY_OS)] = False
+
+    # IDENTIFY_USER invalid if already identified
+    if state_vector[USER_IDENTIFIED_IDX] >= 0.5:
+        mask[int(Action.IDENTIFY_USER)] = False
+
+    # CHECK_* invalid if already checked
+    for action_idx, vec_offset in _CHECK_ACTION_VEC_IDX.items():
+        if state_vector[CHECK_START_IDX + vec_offset] >= 0.5:
+            mask[action_idx] = False
+
+    # EXPLOIT_* invalid if vector not found
+    for action_idx, vec_offset in _EXPLOIT_ACTION_VEC_IDX.items():
+        if state_vector[FOUND_START_IDX + vec_offset] < 0.5:
+            mask[action_idx] = False
+
+    # VERIFY_ROOT invalid if not root
+    if state_vector[CURRENT_PRIVILEGE_IDX] < 0.5:
+        mask[int(Action.VERIFY_ROOT)] = False
+
+    # STOP always valid (already True)
+    return mask
