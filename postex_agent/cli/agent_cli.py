@@ -16,11 +16,15 @@ import os
 import sys
 from typing import List, Optional
 
-from postex_agent.core.actions import ACTION_DESCRIPTIONS, Action
+from postex_agent.core.actions import (
+    ACTION_DESCRIPTIONS, Action, VECTOR_BY_EXPLOIT_ACTION,
+)
 from postex_agent.core.state import HostState, VECTOR_KEYS
 from postex_agent.environment.command_library import get_commands
 from postex_agent.environment.parser_registry import parse_output
-from postex_agent.environment.state_builder import update_state
+from postex_agent.environment.state_builder import (
+    update_state, update_temporal, VECTOR_RISK_PENALTIES,
+)
 from postex_agent.execution.command_executor import CommandExecutor
 from postex_agent.rl.policy_inference import RLPolicy
 
@@ -195,9 +199,10 @@ def run_agent(
     max_steps: int  = MAX_STEPS,
     log_dir:   str  = "logs",
 ) -> None:
-    logger   = StepLogger(log_dir=log_dir)
-    executor = CommandExecutor(session=session, log_path=os.path.join(log_dir, "execution.jsonl"))
-    state    = HostState()
+    logger          = StepLogger(log_dir=log_dir)
+    executor        = CommandExecutor(session=session, log_path=os.path.join(log_dir, "execution.jsonl"))
+    state           = HostState()
+    cumulative_risk = 0.0
 
     print(_c(f"\n[*] Session log: {logger.path}", GREY))
     print(_c("[*] Starting agent loop. Press Ctrl+C to abort.\n", GREY))
@@ -265,6 +270,14 @@ def run_agent(
         state_before = state.summary()
         _print_parsed(parsed)
         update_state(state, action, parsed)
+
+        # Track cumulative risk for exploit actions
+        if action in VECTOR_BY_EXPLOIT_ACTION:
+            vector = VECTOR_BY_EXPLOIT_ACTION[action]
+            cumulative_risk += VECTOR_RISK_PENALTIES.get(vector, 0.0)
+
+        # Update temporal features (time_step, cumulative_risk)
+        update_temporal(state, step, max_steps, cumulative_risk)
 
         logger.log({
             "step":         step,

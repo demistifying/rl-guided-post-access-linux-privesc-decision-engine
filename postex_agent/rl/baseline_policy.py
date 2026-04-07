@@ -55,6 +55,9 @@ class BaselinePolicy:
 
         for vector in LOWEST_RISK_VECTOR_ORDER:
             if state.found.get(vector, False):
+                # Skip vectors we already tried and failed
+                if state.exploit_failures.get(vector, 0) > 0:
+                    continue
                 exploit_action = VECTOR_TO_EXPLOIT_ACTION.get(vector)
                 if exploit_action is not None:
                     return int(exploit_action)

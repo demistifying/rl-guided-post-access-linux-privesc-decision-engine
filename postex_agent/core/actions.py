@@ -15,6 +15,7 @@ from postex_agent.core.state import (
     USER_IDENTIFIED_IDX,
     CHECK_START_IDX,
     FOUND_START_IDX,
+    EXPLOIT_FAIL_START_IDX,
     VECTOR_KEYS,
 )
 
@@ -124,9 +125,12 @@ def compute_action_mask(state_vector: np.ndarray) -> np.ndarray:
         if state_vector[CHECK_START_IDX + vec_offset] >= 0.5:
             mask[action_idx] = False
 
-    # EXPLOIT_* invalid if vector not found
+    # EXPLOIT_* invalid if vector not found OR already tried and failed
     for action_idx, vec_offset in _EXPLOIT_ACTION_VEC_IDX.items():
         if state_vector[FOUND_START_IDX + vec_offset] < 0.5:
+            mask[action_idx] = False
+        elif state_vector[EXPLOIT_FAIL_START_IDX + vec_offset] > 0.0:
+            # Already attempted this exploit and it failed — don't retry
             mask[action_idx] = False
 
     # VERIFY_ROOT invalid if not root
@@ -135,3 +139,4 @@ def compute_action_mask(state_vector: np.ndarray) -> np.ndarray:
 
     # STOP always valid (already True)
     return mask
+

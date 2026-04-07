@@ -1,42 +1,42 @@
 {
   "baseline": {
     "overall": {
-      "success_rate": 0.8256666660308838,
-      "avg_steps": 10.761666297912598,
-      "avg_reward": 18.74028968811035,
-      "avg_risk_exposure": 0.3232100009918213,
+      "success_rate": 0.5143333077430725,
+      "avg_steps": 10.440999984741211,
+      "avg_reward": 16.76483917236328,
+      "avg_risk_exposure": 0.18839335441589355,
       "avg_redundant_actions": 0.0,
-      "avg_escalation_attempts": 1.5889999866485596,
+      "avg_escalation_attempts": 0.9553333520889282,
       "n_episodes": 3000.0
     },
     "per_seed": [
       {
-        "success_rate": 0.8209999799728394,
-        "avg_steps": 10.770999908447266,
-        "avg_reward": 18.64361000061035,
-        "avg_risk_exposure": 0.3332900106906891,
+        "success_rate": 0.5120000243186951,
+        "avg_steps": 10.416000366210938,
+        "avg_reward": 16.794679641723633,
+        "avg_risk_exposure": 0.18372000753879547,
         "avg_redundant_actions": 0.0,
-        "avg_escalation_attempts": 1.593999981880188,
+        "avg_escalation_attempts": 0.9279999732971191,
         "n_episodes": 1000.0,
         "seed": 7.0
       },
       {
-        "success_rate": 0.828000009059906,
-        "avg_steps": 10.696000099182129,
-        "avg_reward": 18.903610229492188,
-        "avg_risk_exposure": 0.297789990901947,
+        "success_rate": 0.5189999938011169,
+        "avg_steps": 10.425000190734863,
+        "avg_reward": 16.806589126586914,
+        "avg_risk_exposure": 0.18390999734401703,
         "avg_redundant_actions": 0.0,
-        "avg_escalation_attempts": 1.5240000486373901,
+        "avg_escalation_attempts": 0.9440000057220459,
         "n_episodes": 1000.0,
         "seed": 42.0
       },
       {
-        "success_rate": 0.828000009059906,
-        "avg_steps": 10.817999839782715,
-        "avg_reward": 18.67365074157715,
-        "avg_risk_exposure": 0.33855000138282776,
+        "success_rate": 0.5120000243186951,
+        "avg_steps": 10.482000350952148,
+        "avg_reward": 16.69325065612793,
+        "avg_risk_exposure": 0.19755001366138458,
         "avg_redundant_actions": 0.0,
-        "avg_escalation_attempts": 1.6490000486373901,
+        "avg_escalation_attempts": 0.9940000176429749,
         "n_episodes": 1000.0,
         "seed": 1337.0
       }
@@ -44,42 +44,42 @@
   },
   "dqn": {
     "overall": {
-      "success_rate": 0.8320000171661377,
-      "avg_steps": 10.86299991607666,
-      "avg_reward": 18.330039978027344,
-      "avg_risk_exposure": 0.4406599998474121,
+      "success_rate": 0.5133333206176758,
+      "avg_steps": 10.487000465393066,
+      "avg_reward": 16.63665199279785,
+      "avg_risk_exposure": 0.21898001432418823,
       "avg_redundant_actions": 0.0,
-      "avg_escalation_attempts": 1.6970000267028809,
+      "avg_escalation_attempts": 1.000333309173584,
       "n_episodes": 3000.0
     },
     "per_seed": [
       {
-        "success_rate": 0.8360000252723694,
-        "avg_steps": 10.869000434875488,
-        "avg_reward": 18.348369598388672,
-        "avg_risk_exposure": 0.4447299838066101,
+        "success_rate": 0.527999997138977,
+        "avg_steps": 10.477999687194824,
+        "avg_reward": 16.826690673828125,
+        "avg_risk_exposure": 0.22151000797748566,
         "avg_redundant_actions": 0.0,
-        "avg_escalation_attempts": 1.7070000171661377,
+        "avg_escalation_attempts": 1.00600004196167,
         "n_episodes": 1000.0,
         "seed": 7.0
       },
       {
-        "success_rate": 0.8220000267028809,
-        "avg_steps": 10.824000358581543,
-        "avg_reward": 18.395750045776367,
-        "avg_risk_exposure": 0.4118499755859375,
+        "success_rate": 0.5019999742507935,
+        "avg_steps": 10.470000267028809,
+        "avg_reward": 16.52557945251465,
+        "avg_risk_exposure": 0.2124200016260147,
         "avg_redundant_actions": 0.0,
-        "avg_escalation_attempts": 1.6469999551773071,
+        "avg_escalation_attempts": 0.972000002861023,
         "n_episodes": 1000.0,
         "seed": 42.0
       },
       {
-        "success_rate": 0.8379999995231628,
-        "avg_steps": 10.895999908447266,
-        "avg_reward": 18.246000289916992,
-        "avg_risk_exposure": 0.46539995074272156,
+        "success_rate": 0.5099999904632568,
+        "avg_steps": 10.512999534606934,
+        "avg_reward": 16.557689666748047,
+        "avg_risk_exposure": 0.22301000356674194,
         "avg_redundant_actions": 0.0,
-        "avg_escalation_attempts": 1.7369999885559082,
+        "avg_escalation_attempts": 1.0230000019073486,
         "n_episodes": 1000.0,
         "seed": 1337.0
       }
@@ -87,32 +87,32 @@
   },
   "comparison": {
     "success_rate": {
-      "difference": 0.006333351135253906,
-      "ci_low": -0.013333320617675781,
-      "ci_high": 0.025333287194371223,
-      "baseline_mean": 0.8256666660308838,
-      "candidate_mean": 0.8320000171661377
+      "difference": -0.0009999871253967285,
+      "ci_low": -0.025333285331726074,
+      "ci_high": 0.023666679859161377,
+      "baseline_mean": 0.5143333077430725,
+      "candidate_mean": 0.5133333206176758
     },
     "avg_steps": {
-      "difference": 0.1013336181640625,
-      "ci_low": 0.030990885570645332,
-      "ci_high": 0.17067500948905945,
-      "baseline_mean": 10.761666297912598,
-      "candidate_mean": 10.86299991607666
+      "difference": 0.04600048065185547,
+      "ci_low": 0.011666297912597656,
+      "ci_high": 0.07800835371017456,
+      "baseline_mean": 10.440999984741211,
+      "candidate_mean": 10.487000465393066
     },
     "avg_reward": {
-      "difference": -0.4102497100830078,
-      "ci_low": -0.7313429117202759,
-      "ci_high": -0.07987269759178162,
-      "baseline_mean": 18.74028968811035,
-      "candidate_mean": 18.330039978027344
+      "difference": -0.1281871795654297,
+      "ci_low": -0.4947786331176758,
+      "ci_high": 0.22489069402217865,
+      "baseline_mean": 16.76483917236328,
+      "candidate_mean": 16.63665199279785
     },
     "avg_risk_exposure": {
-      "difference": 0.11744999885559082,
-      "ci_low": 0.09061183780431747,
-      "ci_high": 0.14439351856708527,
-      "baseline_mean": 0.3232100009918213,
-      "candidate_mean": 0.4406599998474121
+      "difference": 0.030586659908294678,
+      "ci_low": 0.022446509450674057,
+      "ci_high": 0.038416750729084015,
+      "baseline_mean": 0.18839335441589355,
+      "candidate_mean": 0.21898001432418823
     },
     "avg_redundant_actions": {
       "difference": 0.0,
@@ -122,20 +122,20 @@
       "candidate_mean": 0.0
     },
     "avg_escalation_attempts": {
-      "difference": 0.10800004005432129,
-      "ci_low": 0.02732492983341217,
-      "ci_high": 0.187333345413208,
-      "baseline_mean": 1.5889999866485596,
-      "candidate_mean": 1.6970000267028809
+      "difference": 0.04499995708465576,
+      "ci_low": 0.015333354473114014,
+      "ci_high": 0.07534165680408478,
+      "baseline_mean": 0.9553333520889282,
+      "candidate_mean": 1.000333309173584
     }
   },
   "criteria": {
-    "dqn_success_rate": 0.8320000171661377,
-    "baseline_success_rate": 0.8256666660308838,
-    "dqn_avg_steps": 10.86299991607666,
-    "baseline_avg_steps": 10.761666297912598,
-    "step_reduction_pct": -0.94,
-    "meets_success_target_>=82pct": true,
+    "dqn_success_rate": 0.5133333206176758,
+    "baseline_success_rate": 0.5143333077430725,
+    "dqn_avg_steps": 10.487000465393066,
+    "baseline_avg_steps": 10.440999984741211,
+    "step_reduction_pct": -0.44,
+    "meets_success_target_>=82pct": false,
     "meets_step_target_<=8": false,
     "meets_20pct_step_reduction": false,
     "risk_not_significantly_worse": false
