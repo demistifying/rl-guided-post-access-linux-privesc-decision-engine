@@ -1,0 +1,154 @@
+{
+  "baseline": {
+    "overall": {
+      "success_rate": 0.6486666798591614,
+      "avg_steps": 10.772000312805176,
+      "avg_reward": 16.790019989013672,
+      "avg_risk_exposure": 0.3884466886520386,
+      "avg_redundant_actions": 0.0,
+      "avg_escalation_attempts": 1.4206666946411133,
+      "n_episodes": 3000.0
+    },
+    "per_seed": [
+      {
+        "success_rate": 0.6549999713897705,
+        "avg_steps": 10.729000091552734,
+        "avg_reward": 16.950340270996094,
+        "avg_risk_exposure": 0.37676000595092773,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 1.3839999437332153,
+        "n_episodes": 1000.0,
+        "seed": 7.0
+      },
+      {
+        "success_rate": 0.6430000066757202,
+        "avg_steps": 10.814000129699707,
+        "avg_reward": 16.607391357421875,
+        "avg_risk_exposure": 0.4022100269794464,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 1.4570000171661377,
+        "n_episodes": 1000.0,
+        "seed": 42.0
+      },
+      {
+        "success_rate": 0.6480000019073486,
+        "avg_steps": 10.77299976348877,
+        "avg_reward": 16.81233024597168,
+        "avg_risk_exposure": 0.3863700032234192,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 1.4210000038146973,
+        "n_episodes": 1000.0,
+        "seed": 1337.0
+      }
+    ]
+  },
+  "dqn": {
+    "overall": {
+      "success_rate": 0.6346666812896729,
+      "avg_steps": 11.015666961669922,
+      "avg_reward": 15.64762020111084,
+      "avg_risk_exposure": 0.5474799871444702,
+      "avg_redundant_actions": 0.0,
+      "avg_escalation_attempts": 1.650333285331726,
+      "n_episodes": 3000.0
+    },
+    "per_seed": [
+      {
+        "success_rate": 0.621999979019165,
+        "avg_steps": 11.031000137329102,
+        "avg_reward": 15.48611068725586,
+        "avg_risk_exposure": 0.5447900295257568,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 1.652999997138977,
+        "n_episodes": 1000.0,
+        "seed": 7.0
+      },
+      {
+        "success_rate": 0.640999972820282,
+        "avg_steps": 11.04800033569336,
+        "avg_reward": 15.6558198928833,
+        "avg_risk_exposure": 0.566379964351654,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 1.6890000104904175,
+        "n_episodes": 1000.0,
+        "seed": 42.0
+      },
+      {
+        "success_rate": 0.640999972820282,
+        "avg_steps": 10.968000411987305,
+        "avg_reward": 15.80093002319336,
+        "avg_risk_exposure": 0.5312699675559998,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 1.6089999675750732,
+        "n_episodes": 1000.0,
+        "seed": 1337.0
+      }
+    ]
+  },
+  "comparison": {
+    "success_rate": {
+      "difference": -0.013999998569488525,
+      "ci_low": -0.03866666555404663,
+      "ci_high": 0.009666681289672852,
+      "baseline_mean": 0.6486666798591614,
+      "candidate_mean": 0.6346666812896729
+    },
+    "avg_steps": {
+      "difference": 0.2436666488647461,
+      "ci_low": 0.18032482266426086,
+      "ci_high": 0.30534234642982483,
+      "baseline_mean": 10.772000312805176,
+      "candidate_mean": 11.015666961669922
+    },
+    "avg_reward": {
+      "difference": -1.142399787902832,
+      "ci_low": -1.5639547109603882,
+      "ci_high": -0.7288331985473633,
+      "baseline_mean": 16.790019989013672,
+      "candidate_mean": 15.64762020111084
+    },
+    "avg_risk_exposure": {
+      "difference": 0.15903329849243164,
+      "ci_low": 0.13475976884365082,
+      "ci_high": 0.18273837864398956,
+      "baseline_mean": 0.3884466886520386,
+      "candidate_mean": 0.5474799871444702
+    },
+    "avg_redundant_actions": {
+      "difference": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "baseline_mean": 0.0,
+      "candidate_mean": 0.0
+    },
+    "avg_escalation_attempts": {
+      "difference": 0.2296665906906128,
+      "ci_low": 0.16932500898838043,
+      "ci_high": 0.29134172201156616,
+      "baseline_mean": 1.4206666946411133,
+      "candidate_mean": 1.650333285331726
+    }
+  },
+  "criteria": {
+    "dqn_success_rate": 0.6346666812896729,
+    "baseline_success_rate": 0.6486666798591614,
+    "dqn_avg_steps": 11.015666961669922,
+    "baseline_avg_steps": 10.772000312805176,
+    "step_reduction_pct": -2.26,
+    "meets_success_target_>=82pct": false,
+    "meets_step_target_<=8": false,
+    "meets_20pct_step_reduction": false,
+    "risk_not_significantly_worse": false
+  },
+  "config": {
+    "model_path": "artifacts/dqn_model_track3.pt",
+    "seeds": [
+      7,
+      42,
+      1337
+    ],
+    "episodes_per_seed": 1000,
+    "max_steps": 20,
+    "bootstrap_samples": 5000
+  }
+}
