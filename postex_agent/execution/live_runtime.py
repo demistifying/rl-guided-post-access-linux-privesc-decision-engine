@@ -72,6 +72,14 @@ def _build_verify_commands(action: Action, state: HostState) -> List[str]:
                 break
         return cmds or ["id"]
 
+    if action == Action.EXPLOIT_CREDENTIALS:
+        # After attempting su, just verify with id
+        return ["id"]
+
+    if action == Action.EXPLOIT_WRITABLE:
+        # PATH hijacking is async (waits for root process) — just check
+        return ["id"]
+
     # Kernel / cron / fallback — just try id
     return ["id"]
 

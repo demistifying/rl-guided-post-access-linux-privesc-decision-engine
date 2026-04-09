@@ -34,8 +34,10 @@ class Action(IntEnum):
     EXPLOIT_CAP = 11
     EXPLOIT_CRON = 12
     EXPLOIT_KERNEL = 13
-    VERIFY_ROOT = 14
-    STOP = 15
+    EXPLOIT_CREDENTIALS = 14
+    EXPLOIT_WRITABLE = 15
+    VERIFY_ROOT = 16
+    STOP = 17
 
 
 ACTION_SPACE_SIZE: int = len(Action)
@@ -56,6 +58,8 @@ VECTOR_BY_EXPLOIT_ACTION: Dict[Action, str] = {
     Action.EXPLOIT_CAP: "capabilities",
     Action.EXPLOIT_CRON: "cron",
     Action.EXPLOIT_KERNEL: "kernel",
+    Action.EXPLOIT_CREDENTIALS: "credentials",
+    Action.EXPLOIT_WRITABLE: "writable_path",
 }
 
 CHECK_ACTIONS: List[Action] = list(VECTOR_BY_CHECK_ACTION.keys())
@@ -81,6 +85,8 @@ ACTION_DESCRIPTIONS: Dict[Action, str] = {
     Action.EXPLOIT_CAP: "Exploit Linux capabilities",
     Action.EXPLOIT_CRON: "Exploit writable cron job",
     Action.EXPLOIT_KERNEL: "Exploit kernel vulnerability",
+    Action.EXPLOIT_CREDENTIALS: "Escalate using discovered credentials (su/ssh)",
+    Action.EXPLOIT_WRITABLE: "Exploit writable PATH directory for hijacking",
     Action.VERIFY_ROOT: "Verify root access (id, whoami)",
     Action.STOP: "Stop execution",
 }
@@ -91,6 +97,8 @@ EXPLOIT_RETRY_BUDGETS: Dict[str, int] = {
     "capabilities": 1,
     "cron": 1,
     "kernel": 3,
+    "credentials": 2,
+    "writable_path": 1,
 }
 
 

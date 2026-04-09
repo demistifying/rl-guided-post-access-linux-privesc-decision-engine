@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-09T19:17:01.453917+00:00",
+  "timestamp": "2026-04-09T19:37:52.779471+00:00",
   "total": 47,
   "passed": 47,
   "failed": 0,
@@ -13,7 +13,7 @@
       "status": "pass"
     },
     {
-      "name": "Actions: ACTION_SPACE_SIZE = 16",
+      "name": "Actions: ACTION_SPACE_SIZE = 18",
       "status": "pass"
     },
     {
@@ -195,7 +195,7 @@
   ],
   "baseline_metrics": {
     "episodes": 200,
-    "success_rate": 0.695,
-    "avg_steps": 6.75
+    "success_rate": 0.785,
+    "avg_steps": 6.67
   }
 }

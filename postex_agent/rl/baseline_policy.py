@@ -19,6 +19,8 @@ VECTOR_TO_EXPLOIT_ACTION: Dict[str, Action] = {
     "capabilities": Action.EXPLOIT_CAP,
     "cron": Action.EXPLOIT_CRON,
     "kernel": Action.EXPLOIT_KERNEL,
+    "credentials": Action.EXPLOIT_CREDENTIALS,
+    "writable_path": Action.EXPLOIT_WRITABLE,
 }
 
 LOWEST_RISK_VECTOR_ORDER: List[str] = [
@@ -26,6 +28,8 @@ LOWEST_RISK_VECTOR_ORDER: List[str] = [
     "suid",
     "capabilities",
     "cron",
+    "credentials",
+    "writable_path",
     "kernel",
 ]
 
@@ -82,10 +86,18 @@ class BaselinePolicy:
             if _can_retry(state, "cron"):
                 return int(Action.EXPLOIT_CRON)
 
+        # Credentials: try su root if we have high-quality creds
+        if state.found.get("credentials", False) and _can_retry(state, "credentials"):
+            return int(Action.EXPLOIT_CREDENTIALS)
+
         for action in CHECK_ORDER:
             vector = VECTOR_BY_CHECK_ACTION[action]
             if not state.checked[vector]:
                 return int(action)
+
+        # Writable PATH exploitation (lower confidence, try before kernel)
+        if state.found.get("writable_path", False) and _can_retry(state, "writable_path"):
+            return int(Action.EXPLOIT_WRITABLE)
 
         if state.found.get("kernel", False) and _can_retry(state, "kernel"):
             return int(Action.EXPLOIT_KERNEL)

@@ -21,6 +21,8 @@ DEFAULT_DETERMINISTIC_SUCCESS: Dict[str, float] = {
     "capabilities": 0.90,
     "cron": 0.55,
     "kernel": 0.50,
+    "credentials": 0.45,
+    "writable_path": 0.40,
 }
 
 

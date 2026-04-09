@@ -85,7 +85,7 @@ tests/
 Vector key order:
 `sudo, suid, capabilities, writable_path, cron, credentials, kernel`
 
-## Action Space (16 actions)
+## Action Space (18 actions)
 
 - `IDENTIFY_OS`
 - `IDENTIFY_USER`
@@ -101,6 +101,8 @@ Vector key order:
 - `EXPLOIT_CAP`
 - `EXPLOIT_CRON`
 - `EXPLOIT_KERNEL`
+- `EXPLOIT_CREDENTIALS`
+- `EXPLOIT_WRITABLE`
 - `VERIFY_ROOT`
 - `STOP`
 

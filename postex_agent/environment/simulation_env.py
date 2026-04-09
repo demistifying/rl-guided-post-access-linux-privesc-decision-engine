@@ -64,7 +64,7 @@ MAX_EPISODE_STEPS = 20
 MAX_CUMULATIVE_RISK = sum(VECTOR_RISK_PENALTIES.values())
 
 ACTIONABLE_VECTORS: List[str] = list(dict.fromkeys(VECTOR_BY_EXPLOIT_ACTION.values()))
-SAFER_THAN_KERNEL: List[str] = ["sudo", "suid", "capabilities", "cron"]
+SAFER_THAN_KERNEL: List[str] = ["sudo", "suid", "capabilities", "cron", "credentials", "writable_path"]
 HIGH_CONFIDENCE_VECTORS: List[str] = ["sudo", "suid", "capabilities"]
 
 StepResult = Tuple[np.ndarray, float, bool, Dict[str, Any]]
@@ -204,6 +204,18 @@ def _attempt_escalation(
     elif vector == "kernel":
         if state.os_identified:
             success_prob = min(success_prob + 0.05, 0.80)
+            chain_used = True
+    elif vector == "credentials":
+        # Higher quality creds = higher success (plaintext > hash > key)
+        if state.cred_quality >= 0.66:
+            success_prob = min(success_prob + 0.20, 0.85)
+            chain_used = True
+        elif state.cred_quality >= 0.33:
+            success_prob = min(success_prob + 0.08, 0.65)
+    elif vector == "writable_path":
+        # Writable PATH hijacking is more reliable when cron is also found
+        if state.found.get("cron", False):
+            success_prob = min(success_prob + 0.25, 0.80)
             chain_used = True
 
     return rng.random() < success_prob, {
