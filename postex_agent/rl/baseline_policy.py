@@ -1,11 +1,15 @@
-"""Deterministic expert baseline policy for the 16-action practical action space."""
+"""Deterministic baseline policy for the Track 3 simulator."""
 from __future__ import annotations
 
 from typing import Dict, List
 
 import numpy as np
 
-from postex_agent.core.actions import Action, CHECK_ACTIONS, VECTOR_BY_CHECK_ACTION
+from postex_agent.core.actions import (
+    Action,
+    VECTOR_BY_CHECK_ACTION,
+    exploit_retry_budget,
+)
 from postex_agent.core.state import HostState
 
 
@@ -19,21 +23,36 @@ VECTOR_TO_EXPLOIT_ACTION: Dict[str, Action] = {
 
 LOWEST_RISK_VECTOR_ORDER: List[str] = [
     "sudo",
-    "cron",
     "suid",
     "capabilities",
+    "cron",
     "kernel",
 ]
 
+CHECK_ORDER: List[Action] = [
+    Action.CHECK_SUDO,
+    Action.CHECK_SUID,
+    Action.CHECK_CAPABILITIES,
+    Action.CHECK_CRON,
+    Action.CHECK_WRITABLE,
+    Action.CHECK_KERNEL,
+    Action.SEARCH_CREDENTIALS,
+]
+
+
+def _can_retry(state: HostState, vector: str) -> bool:
+    return state.exploit_failures.get(vector, 0) < exploit_retry_budget(vector)
+
 
 class BaselinePolicy:
-    """
-    Competent deterministic baseline:
-    1) Identify OS
-    2) Identify user
-    3) Enumerate all vectors in a fixed order
-    4) Exploit the lowest-risk found vector
-    5) Verify root if currently root, else stop
+    """A competent baseline for Track 3.
+
+    The baseline behaves like a careful operator:
+    1. identify OS and user
+    2. exploit high-confidence vectors as soon as they are discovered
+    3. check writable paths before attempting cron
+    4. reserve kernel retries for when safer paths are exhausted
+    5. stop once realistic options are exhausted
     """
 
     def select_action(self, state_vector: np.ndarray) -> int:
@@ -48,19 +67,27 @@ class BaselinePolicy:
         if not state.user_identified:
             return int(Action.IDENTIFY_USER)
 
-        for action in CHECK_ACTIONS:
+        if state.found.get("sudo", False) and _can_retry(state, "sudo"):
+            return int(Action.EXPLOIT_SUDO)
+
+        if state.found.get("suid", False) and _can_retry(state, "suid"):
+            return int(Action.EXPLOIT_SUID)
+
+        if state.found.get("capabilities", False) and _can_retry(state, "capabilities"):
+            return int(Action.EXPLOIT_CAP)
+
+        if state.found.get("cron", False):
+            if not state.checked.get("writable_path", False):
+                return int(Action.CHECK_WRITABLE)
+            if _can_retry(state, "cron"):
+                return int(Action.EXPLOIT_CRON)
+
+        for action in CHECK_ORDER:
             vector = VECTOR_BY_CHECK_ACTION[action]
             if not state.checked[vector]:
                 return int(action)
 
-        for vector in LOWEST_RISK_VECTOR_ORDER:
-            if state.found.get(vector, False):
-                # Skip vectors we already tried and failed
-                if state.exploit_failures.get(vector, 0) > 0:
-                    continue
-                exploit_action = VECTOR_TO_EXPLOIT_ACTION.get(vector)
-                if exploit_action is not None:
-                    return int(exploit_action)
+        if state.found.get("kernel", False) and _can_retry(state, "kernel"):
+            return int(Action.EXPLOIT_KERNEL)
 
         return int(Action.STOP)
-

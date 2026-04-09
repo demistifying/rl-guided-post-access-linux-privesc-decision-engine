@@ -1,7 +1,4 @@
-"""
-Evaluate a trained DQN against the deterministic baseline policy.
-Runs both policies across multiple seeds and computes bootstrap confidence intervals.
-"""
+"""Evaluate a trained DQN against the deterministic baseline policy."""
 from __future__ import annotations
 
 import argparse
@@ -16,12 +13,25 @@ from postex_agent.rl.baseline_policy import BaselinePolicy
 
 
 RawMetrics = Dict[str, np.ndarray]
-Summary = Dict[str, float]
+Summary = Dict[str, float | None]
 SelectorFn = Callable[[np.ndarray], int]
 SelectorFactory = Callable[[], SelectorFn]
 
+NUMERIC_RAW_KEYS = [
+    "success",
+    "steps",
+    "reward",
+    "risk_exposure",
+    "redundant_actions",
+    "escalation_attempts",
+    "kernel_attempted_while_safer_path_available",
+    "stop_episode",
+    "stop_correct",
+    "had_actionable_path",
+]
 
-def run_episode(env: SimulationEnv, selector: SelectorFn) -> Dict[str, float]:
+
+def run_episode(env: SimulationEnv, selector: SelectorFn) -> Dict[str, object]:
     state = env.reset()
     done = False
     info: dict = {}
@@ -36,34 +46,62 @@ def run_episode(env: SimulationEnv, selector: SelectorFn) -> Dict[str, float]:
 
 def evaluate_seed(selector: SelectorFn, seed: int, episodes: int, max_steps: int) -> RawMetrics:
     env = SimulationEnv(seed=seed, max_steps=max_steps)
-    raw: Dict[str, List[float]] = {
-        key: []
-        for key in [
-            "success",
-            "steps",
-            "reward",
-            "risk_exposure",
-            "redundant_actions",
-            "escalation_attempts",
-        ]
-    }
+    raw_numeric: Dict[str, List[float]] = {key: [] for key in NUMERIC_RAW_KEYS}
+    archetypes: List[str] = []
+
     for _ in range(episodes):
         ep = run_episode(env, selector)
-        for key in raw:
-            raw[key].append(float(ep.get(key, 0)))
-    return {k: np.array(v, dtype=np.float32) for k, v in raw.items()}
+        archetypes.append(str(ep.get("archetype", "unknown")))
+        for key in NUMERIC_RAW_KEYS:
+            raw_numeric[key].append(float(ep.get(key, 0.0)))
+
+    merged: RawMetrics = {
+        key: np.array(values, dtype=np.float32)
+        for key, values in raw_numeric.items()
+    }
+    merged["archetype"] = np.array(archetypes, dtype=object)
+    return merged
 
 
 def summarize(raw: RawMetrics) -> Summary:
-    return {
+    summary: Summary = {
         "success_rate": float(raw["success"].mean()),
         "avg_steps": float(raw["steps"].mean()),
         "avg_reward": float(raw["reward"].mean()),
         "avg_risk_exposure": float(raw["risk_exposure"].mean()),
         "avg_redundant_actions": float(raw["redundant_actions"].mean()),
         "avg_escalation_attempts": float(raw["escalation_attempts"].mean()),
+        "kernel_unsafe_rate": float(raw["kernel_attempted_while_safer_path_available"].mean()),
+        "stop_rate": float(raw["stop_episode"].mean()),
+        "actionable_host_rate": float(raw["had_actionable_path"].mean()),
         "n_episodes": float(raw["success"].shape[0]),
     }
+
+    stop_count = float(raw["stop_episode"].sum())
+    if stop_count > 0:
+        summary["stop_precision"] = float(raw["stop_correct"].sum() / stop_count)
+    else:
+        summary["stop_precision"] = None
+    return summary
+
+
+def summarize_by_archetype(raw: RawMetrics) -> Dict[str, Summary]:
+    archetypes = raw.get("archetype")
+    if archetypes is None:
+        return {}
+
+    summaries: Dict[str, Summary] = {}
+    for archetype in sorted({str(value) for value in archetypes.tolist()}):
+        mask = archetypes == archetype
+        subset: RawMetrics = {
+            key: values[mask]
+            for key, values in raw.items()
+        }
+        summary = summarize(subset)
+        if archetype == "hardened_host":
+            summary["stop_precision_on_hardened_hosts"] = summary.get("stop_precision")
+        summaries[archetype] = summary
+    return summaries
 
 
 def evaluate_across_seeds(
@@ -73,17 +111,7 @@ def evaluate_across_seeds(
     max_steps: int,
 ) -> Dict[str, object]:
     per_seed: List[Summary] = []
-    combined: Dict[str, List[np.ndarray]] = {
-        key: []
-        for key in [
-            "success",
-            "steps",
-            "reward",
-            "risk_exposure",
-            "redundant_actions",
-            "escalation_attempts",
-        ]
-    }
+    combined: Dict[str, List[np.ndarray]] = {key: [] for key in NUMERIC_RAW_KEYS + ["archetype"]}
 
     for seed in seeds:
         selector = factory()
@@ -94,8 +122,13 @@ def evaluate_across_seeds(
         for key in combined:
             combined[key].append(raw[key])
 
-    merged = {k: np.concatenate(v) for k, v in combined.items()}
-    return {"per_seed": per_seed, "overall": summarize(merged), "raw": merged}
+    merged = {key: np.concatenate(values) for key, values in combined.items()}
+    return {
+        "per_seed": per_seed,
+        "overall": summarize(merged),
+        "per_archetype": summarize_by_archetype(merged),
+        "raw": merged,
+    }
 
 
 def bootstrap_diff(
@@ -134,6 +167,7 @@ def statistical_comparison(
         "avg_risk_exposure": "risk_exposure",
         "avg_redundant_actions": "redundant_actions",
         "avg_escalation_attempts": "escalation_attempts",
+        "kernel_unsafe_rate": "kernel_attempted_while_safer_path_available",
     }
     return {
         label: bootstrap_diff(
@@ -151,8 +185,8 @@ def success_criteria(
     dqn_overall: Summary,
     comparison: Dict[str, Dict[str, float]],
 ) -> Dict[str, object]:
-    base_steps = baseline_overall["avg_steps"]
-    dqn_steps = dqn_overall["avg_steps"]
+    base_steps = float(baseline_overall["avg_steps"] or 0.0)
+    dqn_steps = float(dqn_overall["avg_steps"] or 0.0)
     step_reduction = (base_steps - dqn_steps) / base_steps if base_steps > 0 else 0.0
     return {
         "dqn_success_rate": dqn_overall["success_rate"],
@@ -160,25 +194,36 @@ def success_criteria(
         "dqn_avg_steps": dqn_steps,
         "baseline_avg_steps": base_steps,
         "step_reduction_pct": round(100.0 * step_reduction, 2),
-        "meets_success_target_>=82pct": dqn_overall["success_rate"] >= 0.82,
-        "meets_step_target_<=8": dqn_steps <= 8.0,
-        "meets_20pct_step_reduction": step_reduction >= 0.20,
+        "dqn_beats_baseline_success": (
+            float(dqn_overall["success_rate"] or 0.0)
+            > float(baseline_overall["success_rate"] or 0.0)
+        ),
+        "dqn_uses_fewer_steps": dqn_steps < base_steps,
         "risk_not_significantly_worse": comparison["avg_risk_exposure"]["ci_low"] <= 0.0,
+        "kernel_discipline_not_significantly_worse": (
+            comparison["kernel_unsafe_rate"]["ci_low"] <= 0.0
+        ),
     }
 
 
+def _format_metric(value: float | None) -> str:
+    if value is None:
+        return "n/a"
+    return f"{value:.4f}"
+
+
 def print_report(report: Dict[str, object]) -> None:
-    b = report["baseline"]["overall"]
-    d = report["dqn"]["overall"]
-    c = report["comparison"]
+    baseline = report["baseline"]["overall"]
+    dqn = report["dqn"]["overall"]
+    comparison = report["comparison"]
     criteria = report["criteria"]
 
-    width = 72
+    width = 86
     print("\n" + "=" * width)
     print("EVALUATION REPORT - DQN vs Deterministic Baseline")
     print("=" * width)
 
-    print(f"\n{'Metric':<30} {'Baseline':>10} {'DQN':>10} {'Delta':>10}")
+    print(f"\n{'Metric':<34} {'Baseline':>10} {'DQN':>10} {'Delta':>10}")
     print("-" * width)
     rows = [
         ("Success rate", "success_rate", True),
@@ -187,27 +232,53 @@ def print_report(report: Dict[str, object]) -> None:
         ("Avg risk exposure", "avg_risk_exposure", False),
         ("Avg redundant actions", "avg_redundant_actions", False),
         ("Avg escalation attempts", "avg_escalation_attempts", False),
+        ("Kernel unsafe rate", "kernel_unsafe_rate", False),
     ]
     for label, key, higher_better in rows:
-        baseline_value = b[key]
-        dqn_value = d[key]
+        baseline_value = float(baseline[key] or 0.0)
+        dqn_value = float(dqn[key] or 0.0)
         delta = dqn_value - baseline_value
         direction = "UP" if (delta > 0) == higher_better else "DOWN"
-        print(f"  {label:<28} {baseline_value:>10.4f} {dqn_value:>10.4f} {delta:>+9.4f} {direction}")
+        print(
+            f"  {label:<32} "
+            f"{baseline_value:>10.4f} {dqn_value:>10.4f} {delta:>+9.4f} {direction}"
+        )
 
     print(f"\n{'-' * width}")
     print("Bootstrap 95% CI (DQN - Baseline)")
-    print(f"  {'Metric':<28} {'Diff':>10}  {'CI':>24}")
+    print(f"  {'Metric':<32} {'Diff':>10}  {'CI':>24}")
+    print(f"  {'-' * 72}")
+    for label, stats in comparison.items():
+        print(
+            f"  {label:<32} {stats['difference']:>+10.4f}  "
+            f"[{stats['ci_low']:>+9.4f}, {stats['ci_high']:>+9.4f}]"
+        )
+
+    print(f"\n{'-' * width}")
+    print("Per-Archetype Summary")
+    print(f"  {'Archetype':<20} {'Policy':<10} {'Success':>10} {'Steps':>10} {'Risk':>10}")
     print(f"  {'-' * 66}")
-    for label, stats in c.items():
-        diff = stats["difference"]
-        low = stats["ci_low"]
-        high = stats["ci_high"]
-        print(f"  {label:<28} {diff:>+10.4f}  [{low:>+9.4f}, {high:>+9.4f}]")
+    baseline_archetypes = report["baseline"]["per_archetype"]
+    dqn_archetypes = report["dqn"]["per_archetype"]
+    for archetype in sorted(set(baseline_archetypes) | set(dqn_archetypes)):
+        base_summary = baseline_archetypes.get(archetype, {})
+        dqn_summary = dqn_archetypes.get(archetype, {})
+        print(
+            f"  {archetype:<20} {'baseline':<10} "
+            f"{_format_metric(base_summary.get('success_rate')):>10} "
+            f"{_format_metric(base_summary.get('avg_steps')):>10} "
+            f"{_format_metric(base_summary.get('avg_risk_exposure')):>10}"
+        )
+        print(
+            f"  {'':<20} {'dqn':<10} "
+            f"{_format_metric(dqn_summary.get('success_rate')):>10} "
+            f"{_format_metric(dqn_summary.get('avg_steps')):>10} "
+            f"{_format_metric(dqn_summary.get('avg_risk_exposure')):>10}"
+        )
 
     print(f"\n{'-' * width}")
     print("Success Criteria")
-    print(f"  {'-' * 66}")
+    print(f"  {'-' * 72}")
     for key, value in criteria.items():
         if isinstance(value, bool):
             status = "[OK]" if value else "[NO]"
@@ -215,6 +286,20 @@ def print_report(report: Dict[str, object]) -> None:
         else:
             print(f"  [..] {key}: {value}")
     print("=" * width + "\n")
+
+
+def _serializable_summary(summary: Summary) -> Dict[str, float | None]:
+    return {
+        key: (float(value) if isinstance(value, (int, float, np.floating)) else value)
+        for key, value in summary.items()
+    }
+
+
+def _serializable_per_archetype(per_archetype: Dict[str, Summary]) -> Dict[str, Dict[str, float | None]]:
+    return {
+        archetype: _serializable_summary(summary)
+        for archetype, summary in per_archetype.items()
+    }
 
 
 def evaluate(
@@ -241,7 +326,7 @@ def evaluate(
 
         rl_policy = RLPolicy(model_path=model_path, device=device)
         dqn_results = evaluate_across_seeds(
-            factory=lambda: (lambda sv: int(rl_policy.predict(sv))),
+            factory=lambda: (lambda state_vector: int(rl_policy.predict(state_vector))),
             seeds=seeds,
             episodes_per_seed=episodes_per_seed,
             max_steps=max_steps,
@@ -283,12 +368,14 @@ def evaluate(
     os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
     serializable = {
         "baseline": {
-            "overall": baseline_results["overall"],
-            "per_seed": baseline_results["per_seed"],
+            "overall": _serializable_summary(baseline_results["overall"]),
+            "per_seed": [_serializable_summary(summary) for summary in baseline_results["per_seed"]],
+            "per_archetype": _serializable_per_archetype(baseline_results["per_archetype"]),
         },
         "dqn": {
-            "overall": dqn_results["overall"],
-            "per_seed": dqn_results["per_seed"],
+            "overall": _serializable_summary(dqn_results["overall"]),
+            "per_seed": [_serializable_summary(summary) for summary in dqn_results["per_seed"]],
+            "per_archetype": _serializable_per_archetype(dqn_results["per_archetype"]),
         },
         "comparison": comparison,
         "criteria": criteria,
@@ -332,4 +419,3 @@ def _cli() -> None:
 
 if __name__ == "__main__":
     _cli()
-

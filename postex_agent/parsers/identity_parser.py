@@ -10,6 +10,62 @@ from postex_agent.parsers.base_parser import BaseParser
 _KERNEL_RE = re.compile(r"\b(\d+\.\d+\.\d+(?:[-._a-zA-Z0-9]+)?)\b")
 _PRETTY_NAME_RE = re.compile(r'^PRETTY_NAME="?([^"\n]+)"?', re.MULTILINE)
 _UID_RE = re.compile(r"uid=(\d+)\(([^)]+)\)")
+_GROUPS_RE = re.compile(r"groups=([^\n]+)")
+
+_CONTAINER_MARKERS = {
+    "docker",
+    "containerd",
+    "kubepods",
+    "podman",
+    "libpod",
+    "lxc",
+}
+
+_PRIVILEGED_GROUPS = {
+    "sudo",
+    "wheel",
+    "adm",
+    "docker",
+    "lxd",
+    "libvirt",
+    "disk",
+    "shadow",
+    "root",
+}
+
+
+def _extract_group_names(raw: str) -> list[str]:
+    match = _GROUPS_RE.search(raw)
+    if not match:
+        return []
+
+    groups_text = match.group(1).strip()
+    groups: list[str] = []
+    for entry in groups_text.split(","):
+        stripped = entry.strip()
+        name_match = re.search(r"\(([^)]+)\)", stripped)
+        name = name_match.group(1) if name_match else stripped
+        if name and name not in groups:
+            groups.append(name)
+    return groups
+
+
+def _extract_container_indicators(raw: str) -> list[str]:
+    lowered = raw.lower()
+    indicators: list[str] = []
+
+    for marker in _CONTAINER_MARKERS:
+        if marker in lowered and marker not in indicators:
+            indicators.append(marker)
+
+    for line in raw.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("container:"):
+            value = stripped.split(":", 1)[1].strip().lower()
+            if value and value not in indicators:
+                indicators.append(value)
+
+    return indicators
 
 
 class OSParser(BaseParser):
@@ -23,6 +79,8 @@ class OSParser(BaseParser):
         if os_name is None and "Linux" in raw:
             os_name = "Linux"
 
+        container_indicators = _extract_container_indicators(raw)
+
         return {
             "vector_found": bool(kernel_version or os_name),
             "exploitable": False,
@@ -30,6 +88,8 @@ class OSParser(BaseParser):
                 "raw": raw,
                 "kernel_version": kernel_version,
                 "os_name": os_name,
+                "container_indicators": container_indicators,
+                "is_containerized": bool(container_indicators),
             },
         }
 
@@ -48,6 +108,9 @@ class UserParser(BaseParser):
                 username = whoami[0].strip()
                 uid = 0 if username == "root" else uid
 
+        groups = _extract_group_names(raw)
+        privileged_groups = [group for group in groups if group.lower() in _PRIVILEGED_GROUPS]
+
         is_root = bool(uid == 0 or username == "root" or "uid=0(" in raw)
 
         return {
@@ -57,7 +120,8 @@ class UserParser(BaseParser):
                 "raw": raw,
                 "uid": uid,
                 "username": username,
+                "groups": groups,
+                "privileged_groups": privileged_groups,
                 "is_root": is_root,
             },
         }
-

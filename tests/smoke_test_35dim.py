@@ -1,4 +1,9 @@
 """Smoke test: verify 35-dim state flows correctly through model inference."""
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 from postex_agent.core.state import HostState, STATE_DIM
 from postex_agent.core.actions import compute_action_mask, ACTION_SPACE_SIZE, Action
 from postex_agent.rl.policy_inference import RLPolicy

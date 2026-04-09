@@ -1,0 +1,4277 @@
+﻿diff --git a/README.md b/README.md
+index 0953e51..9042990 100644
+--- a/README.md
++++ b/README.md
+@@ -33,6 +33,7 @@ postex_agent/
+     actions.py
+   environment/
+     simulation_env.py
++    host_archetypes.py
+     real_env.py
+     command_library.py
+     parser_registry.py
+@@ -67,13 +68,19 @@ tests/
+   test_integration.py
+ ```
+ 
+-## State Representation (17-dim vector)
++## State Representation (35-dim vector)
+ 
+ - `0`: current_privilege
+ - `1`: os_identified
+ - `2`: user_identified
+ - `3..9`: checked flags
+ - `10..16`: found flags
++- `17..23`: exploit failure counts
++- `24..30`: vector richness signals
++- `31`: credential count
++- `32`: credential quality
++- `33`: normalized timestep
++- `34`: cumulative risk exposure
+ 
+ Vector key order:
+ `sudo, suid, capabilities, writable_path, cron, credentials, kernel`
+@@ -131,6 +138,23 @@ python -m postex_agent.rl.evaluate_dqn \
+   --report-path artifacts/eval_report.json
+ ```
+ 
++## Track 3 Simulator
++
++Track 3 upgrades the training distribution to better reflect real post-exploitation:
++
++- Correlated host archetypes: `neglected_server`, `corporate_app`, `containerized_app`, `hardened_host`, `ctf_lab`
++- Vector-specific exploit success rates:
++  - `sudo` and `suid` are near-deterministic when found
++  - `capabilities` are high confidence and improve with richer findings
++  - `cron` becomes significantly stronger when `writable_path` is also found
++  - `kernel` remains the genuinely stochastic vector
++- Limited retry budget:
++  - deterministic vectors are one-shot
++  - `kernel` is retryable up to 3 times
++- Per-archetype evaluation summaries and Track 3 policy-discipline metrics are written by `evaluate_dqn.py`
++
++Track 3 intentionally keeps the live CLI/session execution path stable. The new realism is in the simulator and evaluation stack so models can be retrained without changing the operator workflow.
++
+ Interactive decision support:
+ 
+ ```bash
+@@ -174,7 +198,11 @@ Session output and decisions are logged as JSONL in `logs/`.
+ 
+ ```bash
+ python tests/test_integration.py
++python tests/test_e2e_cli.py
+ ```
+ 
+-Expected: `All tests passed! [OK]`
++Expected:
++
++- `All tests passed! [OK]` for the integration suite
++- `All E2E checks passed!` for the CLI end-to-end suite
+ 
+diff --git a/artifacts/test_results.json b/artifacts/test_results.json
+index 14a6763..a91fc36 100644
+--- a/artifacts/test_results.json
++++ b/artifacts/test_results.json
+@@ -1,7 +1,7 @@
+ {
+-  "timestamp": "2026-04-07T19:53:59.893778+00:00",
+-  "total": 28,
+-  "passed": 28,
++  "timestamp": "2026-04-08T17:58:07.013582+00:00",
++  "total": 47,
++  "passed": 47,
+   "failed": 0,
+   "tests": [
+     {
+@@ -24,6 +24,10 @@
+       "name": "Parser: SudoParser no sudo",
+       "status": "pass"
+     },
++    {
++      "name": "Parser: SudoParser distinguishes passworded entries",
++      "status": "pass"
++    },
+     {
+       "name": "Parser: SuidParser finds exploitable bin",
+       "status": "pass"
+@@ -60,6 +64,14 @@
+       "name": "Parser: UserParser detects root",
+       "status": "pass"
+     },
++    {
++      "name": "Parser: UserParser extracts privileged groups",
++      "status": "pass"
++    },
++    {
++      "name": "Parser: OSParser detects container indicators",
++      "status": "pass"
++    },
+     {
+       "name": "CommandLibrary: get_commands returns lists",
+       "status": "pass"
+@@ -68,6 +80,34 @@
+       "name": "CommandLibrary: safety blocklist blocks rm -rf",
+       "status": "pass"
+     },
++    {
++      "name": "ManualShellSession: executes local command and reports metadata",
++      "status": "pass"
++    },
++    {
++      "name": "ManualShellSession: POSIX mode preserves shell state",
++      "status": "pass"
++    },
++    {
++      "name": "CommandExecutor: includes session metadata in execution record",
++      "status": "pass"
++    },
++    {
++      "name": "LiveExecutionController: shared runtime updates state and step info",
++      "status": "pass"
++    },
++    {
++      "name": "RealEnv: delegates to shared live runtime",
++      "status": "pass"
++    },
++    {
++      "name": "MetasploitSession: wrapped output parsing recovers exit code",
++      "status": "pass"
++    },
++    {
++      "name": "MetasploitSession: retries after reconnectable failure",
++      "status": "pass"
++    },
+     {
+       "name": "ParserRegistry: correct parser returned per action",
+       "status": "pass"
+@@ -80,6 +120,10 @@
+       "name": "StateBuilder: updates os info",
+       "status": "pass"
+     },
++    {
++      "name": "StateBuilder: stores deployment-faithful metadata",
++      "status": "pass"
++    },
+     {
+       "name": "SimulationEnv: reset returns correct state shape",
+       "status": "pass"
+@@ -115,11 +159,43 @@
+     {
+       "name": "BaselinePolicy: exploits found vector after enumeration",
+       "status": "pass"
++    },
++    {
++      "name": "Actions: kernel retry budget respected",
++      "status": "pass"
++    },
++    {
++      "name": "SimulationEnv: reset can force archetype",
++      "status": "pass"
++    },
++    {
++      "name": "SimulationEnv: correct stop on host with no actionable paths",
++      "status": "pass"
++    },
++    {
++      "name": "SimulationEnv: delaying found sudo incurs opportunity-cost penalty",
++      "status": "pass"
++    },
++    {
++      "name": "BaselinePolicy: checks writable paths before cron exploit",
++      "status": "pass"
++    },
++    {
++      "name": "Evaluate: per-archetype summary returned",
++      "status": "pass"
++    },
++    {
++      "name": "DQNAgent: masked bootstrap ignores invalid next actions",
++      "status": "pass"
++    },
++    {
++      "name": "TrainDQN: validation ranking prefers success then efficiency",
++      "status": "pass"
+     }
+   ],
+   "baseline_metrics": {
+     "episodes": 200,
+-    "success_rate": 0.505,
+-    "avg_steps": 10.55
++    "success_rate": 0.695,
++    "avg_steps": 6.75
+   }
+ }
+\ No newline at end of file
+diff --git a/postex_agent/cli/agent_cli.py b/postex_agent/cli/agent_cli.py
+index 228f48c..cefa29f 100644
+--- a/postex_agent/cli/agent_cli.py
++++ b/postex_agent/cli/agent_cli.py
+@@ -1,5 +1,5 @@
+ """
+-PostEx Agent CLI ΓÇö RL-guided Linux privilege escalation decision support.
++PostEx Agent CLI - RL-guided Linux privilege escalation decision support.
+ 
+ Usage:
+     python -m postex_agent.cli.agent_cli --session manual
+@@ -16,47 +16,43 @@ import os
+ import sys
+ from typing import List, Optional
+ 
+-from postex_agent.core.actions import (
+-    ACTION_DESCRIPTIONS, Action, VECTOR_BY_EXPLOIT_ACTION,
+-)
++from postex_agent.core.actions import ACTION_DESCRIPTIONS, Action
+ from postex_agent.core.state import HostState, VECTOR_KEYS
+-from postex_agent.environment.command_library import get_commands
+-from postex_agent.environment.parser_registry import parse_output
+-from postex_agent.environment.state_builder import (
+-    update_state, update_temporal, VECTOR_RISK_PENALTIES,
+-)
+-from postex_agent.execution.command_executor import CommandExecutor
++from postex_agent.execution.live_runtime import LiveExecutionController
+ from postex_agent.rl.policy_inference import RLPolicy
+ 
+-RESET  = "\033[0m"
+-BOLD   = "\033[1m"
+-RED    = "\033[31m"
+-GREEN  = "\033[32m"
++RESET = "\033[0m"
++BOLD = "\033[1m"
++RED = "\033[31m"
++GREEN = "\033[32m"
+ YELLOW = "\033[33m"
+-CYAN   = "\033[36m"
+-GREY   = "\033[90m"
++CYAN = "\033[36m"
++GREY = "\033[90m"
+ 
+ 
+ def _c(text: str, colour: str) -> str:
+     return f"{colour}{text}{RESET}"
+ 
+ 
+-# ΓöÇΓöÇ Session factory ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-
+ def _build_session(args: argparse.Namespace):
+     kind = args.session.lower()
+ 
+     if kind == "manual":
+         from postex_agent.sessions.manual_shell import ManualShellSession
++
+         print(_c("[*] Starting local shell session...", CYAN))
+         return ManualShellSession(shell=args.shell or None)
+ 
+     if kind == "metasploit":
+         from postex_agent.sessions.metasploit_session import MetasploitSession
+-        print(_c(
+-            f"[*] Connecting to msfrpcd at {args.msf_host}:{args.msf_port} "
+-            f"(session {args.msf_session})...", CYAN
+-        ))
++
++        print(
++            _c(
++                f"[*] Connecting to msfrpcd at {args.msf_host}:{args.msf_port} "
++                f"(session {args.msf_session})...",
++                CYAN,
++            )
++        )
+         return MetasploitSession(
+             session_id=args.msf_session,
+             host=args.msf_host,
+@@ -66,6 +62,7 @@ def _build_session(args: argparse.Namespace):
+ 
+     if kind == "ssh":
+         from postex_agent.sessions.metasploit_session import SSHSession
++
+         print(_c(f"[*] Connecting via SSH to {args.host}:{args.port}...", CYAN))
+         return SSHSession(
+             host=args.host,
+@@ -78,8 +75,6 @@ def _build_session(args: argparse.Namespace):
+     raise ValueError(f"Unknown session type: {kind}")
+ 
+ 
+-# ΓöÇΓöÇ Step logger ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-
+ class StepLogger:
+     def __init__(self, log_dir: str = "logs"):
+         os.makedirs(log_dir, exist_ok=True)
+@@ -96,89 +91,93 @@ class StepLogger:
+         return self._path
+ 
+ 
+-# ΓöÇΓöÇ Display helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-
+ def _print_banner() -> None:
+-    print(_c("""
++    print(
++        _c(
++            """
+ +---------------------------------------------------------------+
+ | RL-Guided Post-Exploitation Decision Engine                   |
+ | Linux Privilege Escalation Assistant                          |
+ +---------------------------------------------------------------+
+-""", CYAN))
++""",
++            CYAN,
++        )
++    )
+ 
+ 
+ def _print_state(state: HostState) -> None:
+-    priv   = _c("ROOT", GREEN) if state.current_privilege == 1 else _c("user", YELLOW)
+-    user   = state.current_user or "?"
+-    os_    = state.os_info or "?"
++    privilege = _c("ROOT", GREEN) if state.current_privilege == 1 else _c("user", YELLOW)
++    user = state.current_user or "?"
++    os_name = state.os_info or "?"
+     kernel = state.kernel_version or "?"
+ 
+     print(f"\n{'-' * 72}")
+     print(
+-        f"  {_c('Privilege:', BOLD)} {priv}  |  "
++        f"  {_c('Privilege:', BOLD)} {privilege}  |  "
+         f"{_c('User:', BOLD)} {user}  |  "
+-        f"{_c('OS:', BOLD)} {os_}  |  "
++        f"{_c('OS:', BOLD)} {os_name}  |  "
+         f"{_c('Kernel:', BOLD)} {kernel}"
+     )
+-    chk = [f"{v[:6]}:{_c('Y', GREEN) if state.checked[v] else _c('.', GREY)}" for v in VECTOR_KEYS]
+-    fnd = [f"{v[:6]}:{_c('Y', GREEN) if state.found[v]   else _c('.', GREY)}" for v in VECTOR_KEYS]
+-    print(f"  {_c('Checked:', BOLD)} " + "  ".join(chk))
+-    print(f"  {_c('Found:  ', BOLD)} " + "  ".join(fnd))
++    checked = [f"{v[:6]}:{_c('Y', GREEN) if state.checked[v] else _c('.', GREY)}" for v in VECTOR_KEYS]
++    found = [f"{v[:6]}:{_c('Y', GREEN) if state.found[v] else _c('.', GREY)}" for v in VECTOR_KEYS]
++    print(f"  {_c('Checked:', BOLD)} " + "  ".join(checked))
++    print(f"  {_c('Found:  ', BOLD)} " + "  ".join(found))
+     print(f"{'-' * 72}")
+ 
+ 
+ def _print_suggestion(
+-    action:      Action,
+-    commands:    List[str],
++    action: Action,
++    commands: List[str],
+     top_actions: Optional[list] = None,
+ ) -> None:
+-    desc  = ACTION_DESCRIPTIONS.get(action, "")
+-    color = YELLOW if action == Action.STOP else GREEN
++    desc = ACTION_DESCRIPTIONS.get(action, "")
++    colour = YELLOW if action == Action.STOP else GREEN
+ 
+-    print(f"\n  {_c('> RL Suggested Action:', BOLD)} {_c(action.name, color)}")
++    print(f"\n  {_c('> RL Suggested Action:', BOLD)} {_c(action.name, colour)}")
+     print(f"  {_c('Description:', GREY)} {desc}")
+ 
+     if commands:
+         print(f"  {_c('Commands:', GREY)}")
+         for cmd in commands:
+-            line_color = GREY if cmd.strip().startswith("#") else CYAN
+-            print(f"    {_c('$', CYAN)} {_c(cmd, line_color)}")
++            line_colour = GREY if cmd.strip().startswith("#") else CYAN
++            print(f"    {_c('$', CYAN)} {_c(cmd, line_colour)}")
+     else:
+-        print(f"  {_c('  (no commands ΓÇö decision-only action)', GREY)}")
++        print(f"  {_c('  (no commands - decision-only action)', GREY)}")
+ 
+     if top_actions and len(top_actions) > 1:
+         print(f"  {_c('Alternatives:', GREY)}")
+         for alt, qv, alt_desc in top_actions[1:3]:
+-            print(f"    [{qv:+.2f}] {alt.name} ΓÇö {alt_desc[:60]}")
++            print(f"    [{qv:+.2f}] {alt.name} - {alt_desc[:60]}")
+ 
+ 
+ def _print_parsed(parsed: dict) -> None:
+-    found   = parsed.get("vector_found", False)
++    found = parsed.get("vector_found", False)
+     details = parsed.get("details", {})
+-    label   = _c("FOUND", GREEN) if found else _c("not found", GREY)
++    label = _c("FOUND", GREEN) if found else _c("not found", GREY)
+     print(f"\n  {_c('Parser result:', BOLD)} {label}")
+-    for key, val in details.items():
+-        if not val or key == "raw":
++    for key, value in details.items():
++        if not value or key == "raw":
+             continue
+-        if isinstance(val, list):
+-            preview = ", ".join(str(v)[:80] for v in val[:5])
++        if isinstance(value, list):
++            preview = ", ".join(str(item)[:80] for item in value[:5])
+             print(f"    {_c(key + ':', GREY)} {preview}")
+         else:
+-            print(f"    {_c(key + ':', GREY)} {str(val)[:120]}")
++            print(f"    {_c(key + ':', GREY)} {str(value)[:120]}")
+ 
+ 
+ def _prompt(msg: str, default: str = "y") -> str:
+     try:
+-        ans = input(msg).strip()
+-        return ans if ans else default
++        answer = input(msg).strip()
++        return answer if answer else default
+     except (EOFError, KeyboardInterrupt):
+         return "n"
+ 
+ 
+ def _manual_select() -> Action:
+     print("\n  Available actions:")
+-    for a in Action:
+-        print(f"    [{a.value:>2d}] {a.name}")
++    for action in Action:
++        print(f"    [{action.value:>2d}] {action.name}")
++
+     while True:
+         raw = _prompt("  Select action ID: ", str(Action.STOP.value))
+         try:
+@@ -187,27 +186,29 @@ def _manual_select() -> Action:
+             print("  Invalid. Try again.")
+ 
+ 
+-# ΓöÇΓöÇ Core agent loop ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-
+ MAX_STEPS = 30
+ 
+ 
+ def run_agent(
+-    policy:    RLPolicy,
++    policy: RLPolicy,
+     session,
+-    auto:      bool = False,
+-    max_steps: int  = MAX_STEPS,
+-    log_dir:   str  = "logs",
++    auto: bool = False,
++    max_steps: int = MAX_STEPS,
++    log_dir: str = "logs",
+ ) -> None:
+-    logger          = StepLogger(log_dir=log_dir)
+-    executor        = CommandExecutor(session=session, log_path=os.path.join(log_dir, "execution.jsonl"))
+-    state           = HostState()
+-    cumulative_risk = 0.0
++    logger = StepLogger(log_dir=log_dir)
++    runtime = LiveExecutionController(
++        session=session,
++        max_steps=max_steps,
++        log_path=os.path.join(log_dir, "execution.jsonl"),
++    )
+ 
+     print(_c(f"\n[*] Session log: {logger.path}", GREY))
+     print(_c("[*] Starting agent loop. Press Ctrl+C to abort.\n", GREY))
+ 
+     for step in range(1, max_steps + 1):
++        state = runtime.current_state
++
+         print(f"\n{_c(f'Step {step}/{max_steps}', BOLD)}")
+         _print_state(state)
+ 
+@@ -215,118 +216,104 @@ def run_agent(
+             print(_c("\n[OK] Root access achieved. Stopping.", GREEN))
+             break
+ 
+-        # Policy inference
+-        state_vec   = state.to_vector()
+-        action      = policy.predict(state_vec)
++        state_vec = state.to_vector()
++        suggested_action = Action(int(policy.predict(state_vec)))
+         top_actions = policy.top_actions(state_vec, n=3)
++        commands = runtime.preview_commands(suggested_action)
++        _print_suggestion(suggested_action, commands, top_actions)
+ 
+-        # Build commands ΓÇö pass state so exploit actions get contextual one-liners
+-        commands = get_commands(action, state=state)
+-        _print_suggestion(action, commands, top_actions)
++        selected_action = suggested_action
+ 
+-        # Handle STOP suggestion
+-        if action == Action.STOP:
++        if suggested_action == Action.STOP:
+             print(_c("\n[*] Policy suggests STOP.", YELLOW))
+             if auto or _prompt("  Stop? [Y/n]: ", "y").lower() in ("y", ""):
+                 break
+-            action   = _manual_select()
+-            commands = get_commands(action, state=state)
++            selected_action = _manual_select()
++            commands = runtime.preview_commands(selected_action)
+ 
+-        # Operator confirmation
+         if not auto:
+-            ans = _prompt("\n  Execute? [Y/n/s(skip)/q(quit)]: ", "y").lower()
+-            if ans == "q":
++            answer = _prompt("\n  Execute? [Y/n/s(skip)/q(quit)]: ", "y").lower()
++            if answer == "q":
+                 print(_c("[*] Aborted by operator.", YELLOW))
+                 break
+-            if ans == "s":
++            if answer == "s":
+                 print(_c("[*] Skipping.", GREY))
+                 continue
+-            if ans not in ("y", ""):
+-                action   = _manual_select()
+-                commands = get_commands(action, state=state)
++            if answer not in ("y", ""):
++                selected_action = _manual_select()
++                commands = runtime.preview_commands(selected_action)
+ 
+-        # Execute each command (skip comment lines ΓÇö they are informational only)
+-        combined_output = ""
+-        for cmd in commands:
+-            if cmd.strip().startswith("#"):
+-                continue
+-            print(f"\n  {_c('$', CYAN)} {cmd}")
+-            result = executor.execute(cmd, action_name=action.name)
++        _, _, _, info = runtime.step(selected_action)
++        state = runtime.current_state
++
++        for result in info["execution"]:
++            print(f"\n  {_c('$', CYAN)} {result['command']}")
+             if result["blocked"]:
+                 print(_c(f"  [BLOCKED] {result['error']}", RED))
+                 continue
+             if result["error"]:
+                 print(_c(f"  [STDERR] {result['error'][:200]}", YELLOW))
+-            out = result["output"]
+-            combined_output += out + "\n"
+-            lines = out.splitlines()
++
++            output = result.get("output", "")
++            lines = output.splitlines()
+             for line in lines[:30]:
+                 print(f"  {_c('|', GREY)} {line}")
+             if len(lines) > 30:
+                 print(_c(f"  | ... ({len(lines) - 30} more lines)", GREY))
+ 
+-        # Parse output and update state
+-        parsed       = parse_output(action, combined_output)
+-        state_before = state.summary()
+-        _print_parsed(parsed)
+-        update_state(state, action, parsed)
+-
+-        # Track cumulative risk for exploit actions
+-        if action in VECTOR_BY_EXPLOIT_ACTION:
+-            vector = VECTOR_BY_EXPLOIT_ACTION[action]
+-            cumulative_risk += VECTOR_RISK_PENALTIES.get(vector, 0.0)
+-
+-        # Update temporal features (time_step, cumulative_risk)
+-        update_temporal(state, step, max_steps, cumulative_risk)
+-
+-        logger.log({
+-            "step":         step,
+-            "state_before": state_before,
+-            "action":       action.name,
+-            "commands":     commands,
+-            "parsed":       parsed,
+-            "state_after":  state.summary(),
+-        })
+-
+-        if action == Action.VERIFY_ROOT and state.current_privilege == 1:
++        _print_parsed(info["parsed"])
++        logger.log(
++            {
++                "step": step,
++                "state_before": info["state_before"],
++                "action": info["action"],
++                "commands": info["commands"],
++                "parsed": info["parsed"],
++                "state_after": info["state_after"],
++            }
++        )
++
++        if selected_action == Action.VERIFY_ROOT and state.current_privilege == 1:
+             print(_c("\n[OK] Root confirmed.", GREEN))
+             break
+ 
+     print(_c(f"\n[*] Agent loop complete. Log: {logger.path}", GREY))
+-    _print_state(state)
+-
++    _print_state(runtime.current_state)
+ 
+-# ΓöÇΓöÇ CLI argument parser ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ 
+ def _build_argparser() -> argparse.ArgumentParser:
+-    p = argparse.ArgumentParser(
++    parser = argparse.ArgumentParser(
+         prog="postex-agent",
+         description="RL-guided Linux post-exploitation decision support agent.",
+     )
+-    p.add_argument("--session",      choices=["manual", "metasploit", "ssh"], default="manual")
+-    p.add_argument("--model-path",   default="artifacts/dqn_model.pt")
+-    p.add_argument("--auto",         action="store_true",
+-                   help="Non-interactive: execute all RL suggestions automatically.")
+-    p.add_argument("--max-steps",    type=int, default=MAX_STEPS)
+-    p.add_argument("--log-dir",      default="logs")
+-    p.add_argument("--device",       default=None)
+-
+-    # SSH options
+-    p.add_argument("--host",     default="127.0.0.1")
+-    p.add_argument("--user",     default="root")
+-    p.add_argument("--password", default=None)
+-    p.add_argument("--key",      default=None, help="Path to SSH private key")
+-    p.add_argument("--port",     type=int, default=22)
+-
+-    # Metasploit options
+-    p.add_argument("--msf-session",  type=int, default=1)
+-    p.add_argument("--msf-host",     default="127.0.0.1")
+-    p.add_argument("--msf-port",     type=int, default=55553)
+-    p.add_argument("--msf-password", default="msf")
+-
+-    # Local shell override
+-    p.add_argument("--shell", default=None, help="Shell binary for manual session (default: /bin/sh)")
+-    return p
++    parser.add_argument("--session", choices=["manual", "metasploit", "ssh"], default="manual")
++    parser.add_argument("--model-path", default="artifacts/dqn_model.pt")
++    parser.add_argument(
++        "--auto",
++        action="store_true",
++        help="Non-interactive: execute all RL suggestions automatically.",
++    )
++    parser.add_argument("--max-steps", type=int, default=MAX_STEPS)
++    parser.add_argument("--log-dir", default="logs")
++    parser.add_argument("--device", default=None)
++
++    parser.add_argument("--host", default="127.0.0.1")
++    parser.add_argument("--user", default="root")
++    parser.add_argument("--password", default=None)
++    parser.add_argument("--key", default=None, help="Path to SSH private key")
++    parser.add_argument("--port", type=int, default=22)
++
++    parser.add_argument("--msf-session", type=int, default=1)
++    parser.add_argument("--msf-host", default="127.0.0.1")
++    parser.add_argument("--msf-port", type=int, default=55553)
++    parser.add_argument("--msf-password", default="msf")
++
++    parser.add_argument(
++        "--shell",
++        default=None,
++        help="Shell binary for manual session (default: /bin/sh)",
++    )
++    return parser
+ 
+ 
+ def main() -> None:
+diff --git a/postex_agent/core/actions.py b/postex_agent/core/actions.py
+index a7a21b9..565b782 100644
+--- a/postex_agent/core/actions.py
++++ b/postex_agent/core/actions.py
+@@ -1,6 +1,4 @@
+-"""
+-Action space definition shared between RL training and real deployment.
+-"""
++"""Action space definition shared between RL training and real deployment."""
+ from __future__ import annotations
+ 
+ from enum import IntEnum
+@@ -9,55 +7,54 @@ from typing import Dict, List
+ import numpy as np
+ 
+ from postex_agent.core.state import (
+-    STATE_DIM,
++    CHECK_START_IDX,
+     CURRENT_PRIVILEGE_IDX,
++    EXPLOIT_FAIL_START_IDX,
++    FOUND_START_IDX,
++    MAX_EXPLOIT_FAILURES,
+     OS_IDENTIFIED_IDX,
++    STATE_DIM,
+     USER_IDENTIFIED_IDX,
+-    CHECK_START_IDX,
+-    FOUND_START_IDX,
+-    EXPLOIT_FAIL_START_IDX,
+     VECTOR_KEYS,
+ )
+ 
+ 
+ class Action(IntEnum):
+-    IDENTIFY_OS         = 0
+-    IDENTIFY_USER       = 1
+-    CHECK_SUDO          = 2
+-    CHECK_SUID          = 3
+-    CHECK_CAPABILITIES  = 4
+-    CHECK_WRITABLE      = 5
+-    CHECK_CRON          = 6
+-    SEARCH_CREDENTIALS  = 7
+-    CHECK_KERNEL        = 8
+-    EXPLOIT_SUDO        = 9
+-    EXPLOIT_SUID        = 10
+-    EXPLOIT_CAP         = 11
+-    EXPLOIT_CRON        = 12
+-    EXPLOIT_KERNEL      = 13
+-    VERIFY_ROOT         = 14
+-    STOP                = 15
++    IDENTIFY_OS = 0
++    IDENTIFY_USER = 1
++    CHECK_SUDO = 2
++    CHECK_SUID = 3
++    CHECK_CAPABILITIES = 4
++    CHECK_WRITABLE = 5
++    CHECK_CRON = 6
++    SEARCH_CREDENTIALS = 7
++    CHECK_KERNEL = 8
++    EXPLOIT_SUDO = 9
++    EXPLOIT_SUID = 10
++    EXPLOIT_CAP = 11
++    EXPLOIT_CRON = 12
++    EXPLOIT_KERNEL = 13
++    VERIFY_ROOT = 14
++    STOP = 15
+ 
+ 
+ ACTION_SPACE_SIZE: int = len(Action)
+ 
+-# Maps check actions ΓåÆ vector key names (matching state.VECTOR_KEYS)
+ VECTOR_BY_CHECK_ACTION: Dict[Action, str] = {
+-    Action.CHECK_SUDO:         "sudo",
+-    Action.CHECK_SUID:         "suid",
++    Action.CHECK_SUDO: "sudo",
++    Action.CHECK_SUID: "suid",
+     Action.CHECK_CAPABILITIES: "capabilities",
+-    Action.CHECK_WRITABLE:     "writable_path",
+-    Action.CHECK_CRON:         "cron",
++    Action.CHECK_WRITABLE: "writable_path",
++    Action.CHECK_CRON: "cron",
+     Action.SEARCH_CREDENTIALS: "credentials",
+-    Action.CHECK_KERNEL:       "kernel",
++    Action.CHECK_KERNEL: "kernel",
+ }
+ 
+-# Maps exploit actions ΓåÆ vector key names
+ VECTOR_BY_EXPLOIT_ACTION: Dict[Action, str] = {
+-    Action.EXPLOIT_SUDO:   "sudo",
+-    Action.EXPLOIT_SUID:   "suid",
+-    Action.EXPLOIT_CAP:    "capabilities",
+-    Action.EXPLOIT_CRON:   "cron",
++    Action.EXPLOIT_SUDO: "sudo",
++    Action.EXPLOIT_SUID: "suid",
++    Action.EXPLOIT_CAP: "capabilities",
++    Action.EXPLOIT_CRON: "cron",
+     Action.EXPLOIT_KERNEL: "kernel",
+ }
+ 
+@@ -70,73 +67,78 @@ IDENTIFICATION_ACTIONS: List[Action] = [
+ ]
+ 
+ ACTION_DESCRIPTIONS: Dict[Action, str] = {
+-    Action.IDENTIFY_OS:        "Identify operating system and kernel version",
+-    Action.IDENTIFY_USER:      "Identify current user and privileges",
+-    Action.CHECK_SUDO:         "Check sudo permissions (sudo -l)",
+-    Action.CHECK_SUID:         "Search for SUID binaries",
++    Action.IDENTIFY_OS: "Identify operating system and kernel version",
++    Action.IDENTIFY_USER: "Identify current user and privileges",
++    Action.CHECK_SUDO: "Check sudo permissions (sudo -l)",
++    Action.CHECK_SUID: "Search for SUID binaries",
+     Action.CHECK_CAPABILITIES: "Check Linux capabilities",
+-    Action.CHECK_WRITABLE:     "Find world-writable files and paths",
+-    Action.CHECK_CRON:         "Enumerate cron jobs and scheduled tasks",
++    Action.CHECK_WRITABLE: "Find world-writable files and paths",
++    Action.CHECK_CRON: "Enumerate cron jobs and scheduled tasks",
+     Action.SEARCH_CREDENTIALS: "Search for credentials in files/env",
+-    Action.CHECK_KERNEL:       "Check kernel version for known exploits",
+-    Action.EXPLOIT_SUDO:       "Exploit sudo misconfiguration",
+-    Action.EXPLOIT_SUID:       "Exploit SUID binary",
+-    Action.EXPLOIT_CAP:        "Exploit Linux capabilities",
+-    Action.EXPLOIT_CRON:       "Exploit writable cron job",
+-    Action.EXPLOIT_KERNEL:     "Exploit kernel vulnerability",
+-    Action.VERIFY_ROOT:        "Verify root access (id, whoami)",
+-    Action.STOP:               "Stop execution",
++    Action.CHECK_KERNEL: "Check kernel version for known exploits",
++    Action.EXPLOIT_SUDO: "Exploit sudo misconfiguration",
++    Action.EXPLOIT_SUID: "Exploit SUID binary",
++    Action.EXPLOIT_CAP: "Exploit Linux capabilities",
++    Action.EXPLOIT_CRON: "Exploit writable cron job",
++    Action.EXPLOIT_KERNEL: "Exploit kernel vulnerability",
++    Action.VERIFY_ROOT: "Verify root access (id, whoami)",
++    Action.STOP: "Stop execution",
++}
++
++EXPLOIT_RETRY_BUDGETS: Dict[str, int] = {
++    "sudo": 1,
++    "suid": 1,
++    "capabilities": 1,
++    "cron": 1,
++    "kernel": 3,
+ }
+ 
+ 
+-# ΓöÇΓöÇ Action masking ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++def exploit_retry_budget(vector: str) -> int:
++    return EXPLOIT_RETRY_BUDGETS.get(vector, 1)
++
+ 
+-# Pre-built lookup: CHECK action index ΓåÆ offset into VECTOR_KEYS
+ _CHECK_ACTION_VEC_IDX: Dict[int, int] = {
+-    int(a): VECTOR_KEYS.index(v)
+-    for a, v in VECTOR_BY_CHECK_ACTION.items()
++    int(action): VECTOR_KEYS.index(vector)
++    for action, vector in VECTOR_BY_CHECK_ACTION.items()
+ }
+ 
+-# Pre-built lookup: EXPLOIT action index ΓåÆ offset into VECTOR_KEYS
+ _EXPLOIT_ACTION_VEC_IDX: Dict[int, int] = {
+-    int(a): VECTOR_KEYS.index(v)
+-    for a, v in VECTOR_BY_EXPLOIT_ACTION.items()
++    int(action): VECTOR_KEYS.index(vector)
++    for action, vector in VECTOR_BY_EXPLOIT_ACTION.items()
+ }
+ 
+ 
+ def compute_action_mask(state_vector: np.ndarray) -> np.ndarray:
+-    """Return a boolean mask of shape (ACTION_SPACE_SIZE,).
++    """Return a boolean mask of shape ``(ACTION_SPACE_SIZE,)``."""
++    if state_vector.shape[0] != STATE_DIM:
++        raise ValueError(f"Expected state vector with dim {STATE_DIM}, got {state_vector.shape[0]}")
+ 
+-    mask[i] = True  ΓåÆ action i is valid in the current state
+-    mask[i] = False ΓåÆ action i would be redundant or impossible
+-    """
+     mask = np.ones(ACTION_SPACE_SIZE, dtype=np.bool_)
+ 
+-    # IDENTIFY_OS invalid if already identified
+     if state_vector[OS_IDENTIFIED_IDX] >= 0.5:
+         mask[int(Action.IDENTIFY_OS)] = False
+ 
+-    # IDENTIFY_USER invalid if already identified
+     if state_vector[USER_IDENTIFIED_IDX] >= 0.5:
+         mask[int(Action.IDENTIFY_USER)] = False
+ 
+-    # CHECK_* invalid if already checked
+     for action_idx, vec_offset in _CHECK_ACTION_VEC_IDX.items():
+         if state_vector[CHECK_START_IDX + vec_offset] >= 0.5:
+             mask[action_idx] = False
+ 
+-    # EXPLOIT_* invalid if vector not found OR already tried and failed
+     for action_idx, vec_offset in _EXPLOIT_ACTION_VEC_IDX.items():
++        vector = VECTOR_KEYS[vec_offset]
+         if state_vector[FOUND_START_IDX + vec_offset] < 0.5:
+             mask[action_idx] = False
+-        elif state_vector[EXPLOIT_FAIL_START_IDX + vec_offset] > 0.0:
+-            # Already attempted this exploit and it failed ΓÇö don't retry
++            continue
++
++        failure_count = int(
++            round(state_vector[EXPLOIT_FAIL_START_IDX + vec_offset] * MAX_EXPLOIT_FAILURES)
++        )
++        if failure_count >= exploit_retry_budget(vector):
+             mask[action_idx] = False
+ 
+-    # VERIFY_ROOT invalid if not root
+     if state_vector[CURRENT_PRIVILEGE_IDX] < 0.5:
+         mask[int(Action.VERIFY_ROOT)] = False
+ 
+-    # STOP always valid (already True)
+     return mask
+-
+diff --git a/postex_agent/core/state.py b/postex_agent/core/state.py
+index b60ba92..3c0e8e0 100644
+--- a/postex_agent/core/state.py
++++ b/postex_agent/core/state.py
+@@ -1,6 +1,5 @@
+ """
+-Structured host state representation.
+-Shared between simulation training and real-session deployment.
++Structured host state representation shared by training and live deployment.
+ 
+ State vector layout (35 dimensions):
+   [0]      current_privilege   (0=user, 1=root)
+@@ -32,24 +31,22 @@ VECTOR_KEYS: List[str] = [
+     "kernel",
+ ]
+ 
+-# ΓöÇΓöÇ Dimension constants ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-
+ STATE_DIM = 35
+ 
+ CURRENT_PRIVILEGE_IDX = 0
+-OS_IDENTIFIED_IDX     = 1
+-USER_IDENTIFIED_IDX   = 2
+-CHECK_START_IDX       = 3
+-FOUND_START_IDX       = CHECK_START_IDX + len(VECTOR_KEYS)        # 10
+-EXPLOIT_FAIL_START_IDX = FOUND_START_IDX + len(VECTOR_KEYS)       # 17
+-RICHNESS_START_IDX    = EXPLOIT_FAIL_START_IDX + len(VECTOR_KEYS) # 24
+-CRED_COUNT_IDX        = RICHNESS_START_IDX + len(VECTOR_KEYS)     # 31
+-CRED_QUALITY_IDX      = CRED_COUNT_IDX + 1                        # 32
+-TIME_STEP_IDX         = CRED_QUALITY_IDX + 1                      # 33
+-CUMULATIVE_RISK_IDX   = TIME_STEP_IDX + 1                         # 34
++OS_IDENTIFIED_IDX = 1
++USER_IDENTIFIED_IDX = 2
++CHECK_START_IDX = 3
++FOUND_START_IDX = CHECK_START_IDX + len(VECTOR_KEYS)
++EXPLOIT_FAIL_START_IDX = FOUND_START_IDX + len(VECTOR_KEYS)
++RICHNESS_START_IDX = EXPLOIT_FAIL_START_IDX + len(VECTOR_KEYS)
++CRED_COUNT_IDX = RICHNESS_START_IDX + len(VECTOR_KEYS)
++CRED_QUALITY_IDX = CRED_COUNT_IDX + 1
++TIME_STEP_IDX = CRED_QUALITY_IDX + 1
++CUMULATIVE_RISK_IDX = TIME_STEP_IDX + 1
+ 
+-MAX_EXPLOIT_FAILURES  = 5   # normalisation ceiling for exploit failure counts
+-MAX_RICHNESS          = 10  # normalisation ceiling for item counts
++MAX_EXPLOIT_FAILURES = 5
++MAX_RICHNESS = 10
+ 
+ 
+ def _empty_flags() -> Dict[str, bool]:
+@@ -68,14 +65,12 @@ def _zero_floats() -> Dict[str, float]:
+ class HostState:
+     """Full observable state of the target host."""
+ 
+-    # ΓöÇΓöÇ Original 17-dim fields ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-    current_privilege: int = 0          # 0 = user, 1 = root
++    current_privilege: int = 0
+     os_identified: bool = False
+     user_identified: bool = False
+     checked: Dict[str, bool] = field(default_factory=_empty_flags)
+     found: Dict[str, bool] = field(default_factory=_empty_flags)
+ 
+-    # ΓöÇΓöÇ New fields (expansion to 35-dim) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+     exploit_failures: Dict[str, int] = field(default_factory=_zero_counts)
+     richness: Dict[str, float] = field(default_factory=_zero_floats)
+     cred_count: float = 0.0
+@@ -83,50 +78,51 @@ class HostState:
+     time_step: float = 0.0
+     cumulative_risk: float = 0.0
+ 
+-    # ΓöÇΓöÇ Rich metadata (not in RL vector, used for CLI/logging) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++    # Observable metadata used by the live assistant and logs.
+     kernel_version: Optional[str] = None
+     current_user: Optional[str] = None
+     os_info: Optional[str] = None
+     sudo_commands: List[str] = field(default_factory=list)
++    sudo_nopasswd_entries: List[str] = field(default_factory=list)
++    sudo_password_entries: List[str] = field(default_factory=list)
+     exploitable_suid_bins: List[str] = field(default_factory=list)
+     credentials_found: List[str] = field(default_factory=list)
+     exploitable_caps: List[str] = field(default_factory=list)
+     writable_paths: List[str] = field(default_factory=list)
+     cron_jobs: List[str] = field(default_factory=list)
+-
+-    # ---------- vector conversion ----------
++    cron_writable_targets: List[str] = field(default_factory=list)
++    user_groups: List[str] = field(default_factory=list)
++    privileged_groups: List[str] = field(default_factory=list)
++    container_indicators: List[str] = field(default_factory=list)
++    is_containerized: bool = False
+ 
+     def to_vector(self) -> np.ndarray:
+         vec = np.zeros(STATE_DIM, dtype=np.float32)
+ 
+-        # Original 17 dims
+         vec[CURRENT_PRIVILEGE_IDX] = float(self.current_privilege)
+-        vec[OS_IDENTIFIED_IDX]     = float(self.os_identified)
+-        vec[USER_IDENTIFIED_IDX]   = float(self.user_identified)
++        vec[OS_IDENTIFIED_IDX] = float(self.os_identified)
++        vec[USER_IDENTIFIED_IDX] = float(self.user_identified)
++
+         for i, key in enumerate(VECTOR_KEYS):
+             vec[CHECK_START_IDX + i] = float(self.checked[key])
+             vec[FOUND_START_IDX + i] = float(self.found[key])
+ 
+-        # Exploit failure counts (normalised)
+         for i, key in enumerate(VECTOR_KEYS):
+             vec[EXPLOIT_FAIL_START_IDX + i] = min(
+-                self.exploit_failures[key] / MAX_EXPLOIT_FAILURES, 1.0
++                self.exploit_failures[key] / MAX_EXPLOIT_FAILURES,
++                1.0,
+             )
+ 
+-        # Richness (normalised item counts)
+         for i, key in enumerate(VECTOR_KEYS):
+             vec[RICHNESS_START_IDX + i] = min(
+-                self.richness[key] / MAX_RICHNESS, 1.0
++                self.richness[key] / MAX_RICHNESS,
++                1.0,
+             )
+ 
+-        # Credential quality signals
+-        vec[CRED_COUNT_IDX]      = min(self.cred_count, 1.0)
+-        vec[CRED_QUALITY_IDX]    = min(self.cred_quality, 1.0)
+-
+-        # Temporal / risk
+-        vec[TIME_STEP_IDX]       = self.time_step
++        vec[CRED_COUNT_IDX] = min(self.cred_count, 1.0)
++        vec[CRED_QUALITY_IDX] = min(self.cred_quality, 1.0)
++        vec[TIME_STEP_IDX] = self.time_step
+         vec[CUMULATIVE_RISK_IDX] = min(self.cumulative_risk, 1.0)
+-
+         return vec
+ 
+     @classmethod
+@@ -135,22 +131,22 @@ class HostState:
+             raise ValueError(f"Expected {STATE_DIM}-dim vector, got {vec.shape[0]}")
+ 
+         checked = _empty_flags()
+-        found   = _empty_flags()
++        found = _empty_flags()
+         exploit_failures = _zero_counts()
+         richness = _zero_floats()
+ 
+         for i, key in enumerate(VECTOR_KEYS):
+             checked[key] = bool(vec[CHECK_START_IDX + i] >= 0.5)
+-            found[key]   = bool(vec[FOUND_START_IDX + i] >= 0.5)
++            found[key] = bool(vec[FOUND_START_IDX + i] >= 0.5)
+             exploit_failures[key] = int(
+                 round(vec[EXPLOIT_FAIL_START_IDX + i] * MAX_EXPLOIT_FAILURES)
+             )
+             richness[key] = float(vec[RICHNESS_START_IDX + i] * MAX_RICHNESS)
+ 
+         return cls(
+-            current_privilege = int(vec[CURRENT_PRIVILEGE_IDX] >= 0.5),
+-            os_identified     = bool(vec[OS_IDENTIFIED_IDX] >= 0.5),
+-            user_identified   = bool(vec[USER_IDENTIFIED_IDX] >= 0.5),
++            current_privilege=int(vec[CURRENT_PRIVILEGE_IDX] >= 0.5),
++            os_identified=bool(vec[OS_IDENTIFIED_IDX] >= 0.5),
++            user_identified=bool(vec[USER_IDENTIFIED_IDX] >= 0.5),
+             checked=checked,
+             found=found,
+             exploit_failures=exploit_failures,
+@@ -161,8 +157,6 @@ class HostState:
+             cumulative_risk=float(vec[CUMULATIVE_RISK_IDX]),
+         )
+ 
+-    # ---------- helpers ----------
+-
+     def found_vectors(self) -> List[str]:
+         return [v for v in VECTOR_KEYS if self.found[v]]
+ 
+@@ -173,10 +167,11 @@ class HostState:
+         return any(self.found.values())
+ 
+     def summary(self) -> str:
+-        priv = "root" if self.current_privilege == 1 else "user"
++        privilege = "root" if self.current_privilege == 1 else "user"
+         found = self.found_vectors() or ["none"]
++        container = " containerized=True" if self.is_containerized else ""
+         return (
+-            f"privilege={priv} "
++            f"privilege={privilege} "
+             f"os={self.os_identified} user={self.user_identified} "
+-            f"found={found}"
++            f"found={found}{container}"
+         )
+diff --git a/postex_agent/environment/command_library.py b/postex_agent/environment/command_library.py
+index b344f78..4b608b6 100644
+--- a/postex_agent/environment/command_library.py
++++ b/postex_agent/environment/command_library.py
+@@ -21,6 +21,8 @@ _ENUM_COMMANDS: Dict[Action, List[str]] = {
+     Action.IDENTIFY_OS: [
+         "uname -a",
+         "cat /etc/os-release 2>/dev/null",
++        "cat /proc/1/cgroup 2>/dev/null | head -n 20",
++        "test -f /.dockerenv && echo container:docker",
+     ],
+     Action.IDENTIFY_USER: [
+         "id",
+diff --git a/postex_agent/environment/real_env.py b/postex_agent/environment/real_env.py
+index 87b3eca..a6dde2f 100644
+--- a/postex_agent/environment/real_env.py
++++ b/postex_agent/environment/real_env.py
+@@ -5,14 +5,9 @@ from typing import Any, Dict, Tuple
+ 
+ import numpy as np
+ 
+-from postex_agent.core.actions import Action, VECTOR_BY_EXPLOIT_ACTION
++from postex_agent.core.actions import Action
+ from postex_agent.core.state import HostState
+-from postex_agent.environment.command_library import get_commands
+-from postex_agent.environment.parser_registry import parse_output
+-from postex_agent.environment.state_builder import (
+-    update_state, update_temporal, VECTOR_RISK_PENALTIES,
+-)
+-from postex_agent.execution.command_executor import CommandExecutor
++from postex_agent.execution.live_runtime import LiveExecutionController
+ from postex_agent.sessions.base_session import BaseSession
+ 
+ 
+@@ -21,79 +16,30 @@ StepResult = Tuple[np.ndarray, float, bool, Dict[str, Any]]
+ 
+ class RealEnv:
+     """
+-    Wraps a live shell session with the same step() interface as SimulationEnv.
+-    No reward shaping in live mode ΓÇö always returns 0.0 reward.
+-    The RL policy drives action selection; this class handles execution.
++    Wrap a live shell session with the same ``step()`` interface as ``SimulationEnv``.
++
++    Live mode does not shape reward today, so ``step()`` always returns ``0.0``.
++    The shared live runtime owns execution, parsing, and state updates.
+     """
+ 
+     def __init__(
+         self,
+-        session:   BaseSession,
++        session: BaseSession,
+         max_steps: int = 30,
+-        log_path:  str = "logs/execution.jsonl",
++        log_path: str = "logs/execution.jsonl",
+     ):
+-        self.executor       = CommandExecutor(session=session, log_path=log_path)
+-        self.max_steps      = max_steps
+-        self.state          = HostState()
+-        self.steps          = 0
+-        self.done           = False
+-        self._cumulative_risk = 0.0
++        self.runtime = LiveExecutionController(
++            session=session,
++            max_steps=max_steps,
++            log_path=log_path,
++        )
+ 
+     def reset(self) -> np.ndarray:
+-        self.state            = HostState()
+-        self.steps            = 0
+-        self.done             = False
+-        self._cumulative_risk = 0.0
+-        return self.state.to_vector()
++        return self.runtime.reset()
+ 
+     def step(self, action: int | Action) -> StepResult:
+-        if self.done:
+-            raise RuntimeError("Episode is done. Call reset().")
+-
+-        action_enum = Action(int(action))
+-        # Pass current state so exploit actions get contextual one-liners
+-        commands    = get_commands(action_enum, state=self.state)
+-
+-        combined_output = ""
+-        exec_results    = []
+-
+-        for command in commands:
+-            # Skip comment-only informational lines
+-            if command.strip().startswith("#"):
+-                continue
+-            result = self.executor.execute(command=command, action_name=action_enum.name)
+-            exec_results.append(result)
+-            # result["output"] is always a str ΓÇö CommandExecutor guarantees this
+-            combined_output += result["output"] + "\n"
+-
+-        parsed = parse_output(action_enum, combined_output)
+-        update_state(self.state, action_enum, parsed)
+-
+-        # Track cumulative risk for exploit actions
+-        if action_enum in VECTOR_BY_EXPLOIT_ACTION:
+-            vector = VECTOR_BY_EXPLOIT_ACTION[action_enum]
+-            self._cumulative_risk += VECTOR_RISK_PENALTIES.get(vector, 0.0)
+-
+-        self.steps += 1
+-
+-        # Update temporal features (time_step, cumulative_risk)
+-        update_temporal(self.state, self.steps, self.max_steps, self._cumulative_risk)
+-
+-        if (
+-            action_enum == Action.STOP
+-            or self.state.current_privilege == 1
+-            or self.steps >= self.max_steps
+-        ):
+-            self.done = True
+-
+-        info: Dict[str, Any] = {
+-            "action":    action_enum.name,
+-            "commands":  commands,
+-            "execution": exec_results,
+-            "parsed":    parsed,
+-        }
+-        return self.state.to_vector(), 0.0, self.done, info
++        return self.runtime.step(action)
+ 
+     @property
+     def current_state(self) -> HostState:
+-        return self.state
++        return self.runtime.current_state
+diff --git a/postex_agent/environment/simulation_env.py b/postex_agent/environment/simulation_env.py
+index 13b6024..9e08d50 100644
+--- a/postex_agent/environment/simulation_env.py
++++ b/postex_agent/environment/simulation_env.py
+@@ -1,7 +1,8 @@
+-"""
+-Simulation environment for RL training.
+-Models Linux privilege escalation as a finite episodic MDP.
+-No real commands are executed here ΓÇô host properties are sampled stochastically.
++"""Simulation environment for RL training.
++
++Track 3 replaces independent vector sampling with hidden host archetypes,
++vector-specific exploit success rates, and a limited retry budget for genuinely
++stochastic kernel exploitation.
+ """
+ from __future__ import annotations
+ 
+@@ -12,95 +13,74 @@ from typing import Any, Dict, List, Optional, Tuple
+ import numpy as np
+ 
+ from postex_agent.core.actions import (
+-    Action,
+     ACTION_SPACE_SIZE,
++    Action,
+     VECTOR_BY_CHECK_ACTION,
+     VECTOR_BY_EXPLOIT_ACTION,
+     compute_action_mask,
++    exploit_retry_budget,
++)
++from postex_agent.core.state import HostState, MAX_RICHNESS, VECTOR_KEYS
++from postex_agent.environment.host_archetypes import (
++    ARCHETYPE_TEMPLATES,
++    DEFAULT_DETERMINISTIC_SUCCESS,
++    SampledArchetypeProfile,
++    sample_archetype_profile,
+ )
+-from postex_agent.core.state import HostState, VECTOR_KEYS, MAX_RICHNESS
+-
+ 
+-# ΓöÇΓöÇΓöÇ Host ground-truth probabilities ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ 
+ VECTOR_DISCOVERY_PROBS: Dict[str, float] = {
+-    "sudo":         0.25,
+-    "suid":         0.35,
+-    "capabilities": 0.15,
+-    "writable_path": 0.30,
+-    "cron":         0.20,
+-    "credentials":  0.20,
+-    "kernel":       0.10,
++    key: sum(template.weight * template.vector_probs.get(key, 0.0) for template in ARCHETYPE_TEMPLATES)
++    for key in VECTOR_KEYS
+ }
+ 
+-VECTOR_SUCCESS_PROBS: Dict[str, float] = {
+-    "sudo":         0.95,
+-    "suid":         0.80,
+-    "capabilities": 0.75,
+-    "writable_path": 0.70,
+-    "cron":         0.85,
+-    "credentials":  0.75,
+-    "kernel":       0.60,
+-}
++VECTOR_SUCCESS_PROBS: Dict[str, float] = dict(DEFAULT_DETERMINISTIC_SUCCESS)
+ 
+ VECTOR_RISK_PENALTIES: Dict[str, float] = {
+-    "sudo":         0.10,
+-    "suid":         0.20,
++    "sudo": 0.10,
++    "suid": 0.20,
+     "capabilities": 0.30,
+     "writable_path": 0.25,
+-    "cron":         0.18,
+-    "credentials":  0.22,
+-    "kernel":       0.45,
++    "cron": 0.18,
++    "credentials": 0.22,
++    "kernel": 0.45,
+ }
+ 
+-# Mean item counts when a vector is viable (used for richness simulation)
+-VECTOR_MEAN_ITEMS: Dict[str, float] = {
+-    "sudo":         2.0,
+-    "suid":         5.0,
+-    "capabilities": 2.0,
+-    "writable_path": 4.0,
+-    "cron":         3.0,
+-    "credentials":  2.0,
+-    "kernel":       1.0,
+-}
+-
+-# Credential quality distribution (probabilities for each type)
+-CRED_QUALITY_LEVELS = [
+-    (0.33, 0.50),   # hash ΓÇö 50% chance
+-    (0.66, 0.30),   # plaintext password ΓÇö 30% chance
+-    (1.00, 0.20),   # private key / root password ΓÇö 20% chance
+-]
+-
+-LOWEST_RISK_ORDER: List[str] = sorted(
+-    VECTOR_KEYS, key=lambda v: VECTOR_RISK_PENALTIES[v]
+-)
+-
+-# ΓöÇΓöÇΓöÇ Reward constants ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-
+-R_STEP                   = -0.1
+-R_USEFUL_ENUM            =  1.0
+-R_REDUNDANT              = -1.0
+-R_DISCOVERY              =  3.0
+-R_SUCCESS_ESCALATION     = 10.0
+-R_FAILED_ESCALATION      = -3.0
+-R_PREMATURE_ESCALATION   = -2.0
+-R_EXPLOIT_WITHOUT_ENUM   = -2.0
++R_STEP = -0.15
++R_USEFUL_ENUM = 0.5
++R_REDUNDANT = -1.0
++R_DISCOVERY = 1.5
++R_SUCCESS_ESCALATION = 18.0
++R_FAILED_ESCALATION = -4.0
++R_RETRYABLE_FAILURE = -2.0
++R_PREMATURE_ESCALATION = -2.5
++R_EXPLOIT_WITHOUT_ENUM = -2.5
++R_CORRECT_STOP = 0.25
++R_PREMATURE_STOP = -6.0
++R_UNSAFE_KERNEL_ATTEMPT = -1.5
+ 
+ MAX_EPISODE_STEPS = 20
+-
+-# Maximum possible cumulative risk (for normalisation)
+ MAX_CUMULATIVE_RISK = sum(VECTOR_RISK_PENALTIES.values())
+ 
++ACTIONABLE_VECTORS: List[str] = list(dict.fromkeys(VECTOR_BY_EXPLOIT_ACTION.values()))
++SAFER_THAN_KERNEL: List[str] = ["sudo", "suid", "capabilities", "cron"]
++HIGH_CONFIDENCE_VECTORS: List[str] = ["sudo", "suid", "capabilities"]
++
+ StepResult = Tuple[np.ndarray, float, bool, Dict[str, Any]]
+ 
+ 
+ @dataclass
+ class SimulatedHost:
+     """Hidden ground truth for one simulated target."""
++
++    archetype: str
++    profile: SampledArchetypeProfile
+     vectors: Dict[str, bool] = field(default_factory=dict)
+     item_counts: Dict[str, int] = field(default_factory=dict)
+-    cred_type_quality: float = 0.0     # quality of credentials (if any)
+-    cred_type_count: int = 0           # number of credentials found
++    success_probs: Dict[str, float] = field(default_factory=dict)
++    cron_chain_success: float = 0.85
++    cred_type_quality: float = 0.0
++    cred_type_count: int = 0
+ 
+     def is_viable(self, vector: str) -> bool:
+         return self.vectors.get(vector, False)
+@@ -108,112 +88,165 @@ class SimulatedHost:
+     def any_viable(self) -> bool:
+         return any(self.vectors.values())
+ 
++    def any_actionable_exploit(self) -> bool:
++        return any(self.vectors.get(vector, False) for vector in ACTIONABLE_VECTORS)
++
++    def remaining_hidden_paths(self, state: HostState) -> List[str]:
++        remaining: List[str] = []
++        for vector in ACTIONABLE_VECTORS:
++            if not self.vectors.get(vector, False):
++                continue
++            if state.exploit_failures.get(vector, 0) >= exploit_retry_budget(vector):
++                continue
++            remaining.append(vector)
++        return remaining
++
++
++def _sample_item_count(rng: random.Random, mean: float) -> int:
++    spread = max(mean * 0.35, 0.5)
++    return max(1, min(int(round(rng.gauss(mean, spread))), MAX_RICHNESS))
+ 
+-def _sample_host(rng: random.Random) -> SimulatedHost:
++
++def _sample_credential_quality(
++    rng: random.Random,
++    levels: Tuple[Tuple[float, float], ...],
++) -> float:
++    roll = rng.random()
++    cumulative = 0.0
++    for quality, probability in levels:
++        cumulative += probability
++        if roll <= cumulative:
++            return quality
++    return levels[-1][0] if levels else 0.0
++
++
++def _sample_host(
++    rng: random.Random,
++    archetype_name: Optional[str] = None,
++) -> SimulatedHost:
++    profile = sample_archetype_profile(rng, force_name=archetype_name)
+     vectors = {
+-        v: rng.random() < VECTOR_DISCOVERY_PROBS[v]
+-        for v in VECTOR_KEYS
++        vector: rng.random() < profile.vector_probs.get(vector, 0.0)
++        for vector in VECTOR_KEYS
+     }
+-    # Guarantee at least one viable vector (avoids unsolvable episodes)
+-    if not any(vectors.values()):
+-        vectors[rng.choice(VECTOR_KEYS)] = True
+ 
+-    # Sample item counts for viable vectors
+     item_counts: Dict[str, int] = {}
+-    for v in VECTOR_KEYS:
+-        if vectors[v]:
+-            # Poisson-distributed item count, minimum 1
+-            mean = VECTOR_MEAN_ITEMS[v]
+-            item_counts[v] = max(1, int(rng.gauss(mean, mean * 0.5)))
++    for vector in VECTOR_KEYS:
++        if vectors[vector]:
++            item_counts[vector] = _sample_item_count(rng, profile.richness_means.get(vector, 1.0))
+         else:
+-            item_counts[v] = 0
++            item_counts[vector] = 0
+ 
+-    # Sample credential quality (if credentials exist)
+     cred_quality = 0.0
+     cred_count = 0
+     if vectors.get("credentials", False):
+         cred_count = item_counts["credentials"]
+-        # Pick quality from distribution
+-        roll = rng.random()
+-        cumulative = 0.0
+-        for quality, prob in CRED_QUALITY_LEVELS:
+-            cumulative += prob
+-            if roll <= cumulative:
+-                cred_quality = quality
+-                break
++        cred_quality = _sample_credential_quality(rng, profile.cred_quality_levels)
+ 
+     return SimulatedHost(
++        archetype=profile.name,
++        profile=profile,
+         vectors=vectors,
+         item_counts=item_counts,
++        success_probs=dict(profile.success_probs),
++        cron_chain_success=profile.cron_chain_success,
+         cred_type_quality=cred_quality,
+         cred_type_count=cred_count,
+     )
+ 
+ 
++def _cron_chain_active(state: HostState) -> bool:
++    return state.found.get("cron", False) and state.found.get("writable_path", False)
++
++
++def _safer_path_available(state: HostState) -> bool:
++    for vector in SAFER_THAN_KERNEL:
++        if not state.found.get(vector, False):
++            continue
++        if vector == "cron" and not _cron_chain_active(state):
++            continue
++        if state.exploit_failures.get(vector, 0) >= exploit_retry_budget(vector):
++            continue
++        return True
++    return False
++
++
++def _high_confidence_path_available(state: HostState) -> bool:
++    for vector in HIGH_CONFIDENCE_VECTORS:
++        if not state.found.get(vector, False):
++            continue
++        if state.exploit_failures.get(vector, 0) >= exploit_retry_budget(vector):
++            continue
++        return True
++    return False
++
++
+ def _attempt_escalation(
+     host: SimulatedHost,
++    state: HostState,
+     vector: str,
+-    richness: float,
+-    cred_quality: float,
+     rng: random.Random,
+-) -> bool:
++) -> Tuple[bool, Dict[str, Any]]:
+     if not host.is_viable(vector):
+-        return False
+-    base_prob = VECTOR_SUCCESS_PROBS[vector]
+-
+-    if vector == "credentials":
+-        # Credential success scales with quality
+-        adjusted_prob = base_prob * max(cred_quality, 0.1)
+-    else:
+-        # Richness modulates success: more items ΓåÆ higher chance
+-        # richness is normalised [0, 1]; scale prob by (0.5 + 0.5*richness)
+-        adjusted_prob = base_prob * (0.5 + 0.5 * richness)
+-
+-    return rng.random() < adjusted_prob
+-
+-
+-def _pick_best_vector(state: HostState) -> Optional[str]:
+-    """Choose lowest-risk found vector, prefer those already checked."""
+-    found = set(state.found_vectors())
+-    for v in LOWEST_RISK_ORDER:
+-        if v in found:
+-            return v
+-    return None
++        return False, {"success_prob": 0.0, "chain_used": False}
++
++    chain_used = False
++    success_prob = host.success_probs.get(vector, VECTOR_SUCCESS_PROBS.get(vector, 0.0))
++
++    if vector == "capabilities":
++        if state.richness.get(vector, 0.0) >= 0.5:
++            success_prob = min(success_prob + 0.05, 0.97)
++    elif vector == "cron":
++        if _cron_chain_active(state):
++            success_prob = host.cron_chain_success
++            chain_used = True
++    elif vector == "kernel":
++        if state.os_identified:
++            success_prob = min(success_prob + 0.05, 0.80)
++            chain_used = True
++
++    return rng.random() < success_prob, {
++        "success_prob": success_prob,
++        "chain_used": chain_used,
++    }
+ 
+ 
+ class SimulationEnv:
+-    """
+-    Gym-style environment for DQN training.
+-
+-    observation_space: np.ndarray of shape (STATE_DIM,)
+-    action_space:      discrete, size = ACTION_SPACE_SIZE
+-    """
++    """Gym-style environment for DQN training."""
+ 
+     def __init__(self, seed: Optional[int] = None, max_steps: int = MAX_EPISODE_STEPS):
+         self.max_steps = max_steps
+-        self._rng      = random.Random(seed)
+-        self.state:    HostState          = HostState()
+-        self.host:     Optional[SimulatedHost] = None
+-        self._steps    = 0
+-        self._done     = False
+-        self._ep_reward   = 0.0
+-        self._risk_exp    = 0.0
+-        self._redundant   = 0
++        self._rng = random.Random(seed)
++        self.state: HostState = HostState()
++        self.host: Optional[SimulatedHost] = None
++        self._steps = 0
++        self._done = False
++        self._ep_reward = 0.0
++        self._risk_exp = 0.0
++        self._redundant = 0
+         self._esc_attempts = 0
+-
+-    # ΓöÇΓöÇ Public API ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-
+-    def reset(self, seed: Optional[int] = None) -> np.ndarray:
++        self._done_reason = ""
++        self._stop_was_correct = False
++        self._kernel_attempted_while_safer_path_available = False
++
++    def reset(
++        self,
++        seed: Optional[int] = None,
++        archetype_name: Optional[str] = None,
++    ) -> np.ndarray:
+         if seed is not None:
+             self._rng = random.Random(seed)
+-        self.state          = HostState()
+-        self.host           = _sample_host(self._rng)
+-        self._steps         = 0
+-        self._done          = False
+-        self._ep_reward     = 0.0
+-        self._risk_exp      = 0.0
+-        self._redundant     = 0
+-        self._esc_attempts  = 0
++        self.state = HostState()
++        self.host = _sample_host(self._rng, archetype_name=archetype_name)
++        self._steps = 0
++        self._done = False
++        self._ep_reward = 0.0
++        self._risk_exp = 0.0
++        self._redundant = 0
++        self._esc_attempts = 0
++        self._done_reason = ""
++        self._stop_was_correct = False
++        self._kernel_attempted_while_safer_path_available = False
+         state_vec = self.state.to_vector()
+         self._current_mask = compute_action_mask(state_vec)
+         return state_vec
+@@ -224,12 +257,15 @@ class SimulationEnv:
+         if self.host is None:
+             raise RuntimeError("Call reset() first.")
+ 
+-        a      = Action(action)
++        action_enum = Action(action)
+         reward = R_STEP
+-        info: Dict[str, Any] = {"action": a.name}
++        high_confidence_path_available = _high_confidence_path_available(self.state)
++        info: Dict[str, Any] = {
++            "action": action_enum.name,
++            "archetype": self.host.archetype,
++        }
+ 
+-        # ΓöÇΓöÇ Identification ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-        if a == Action.IDENTIFY_OS:
++        if action_enum == Action.IDENTIFY_OS:
+             if self.state.os_identified:
+                 reward += R_REDUNDANT
+                 self._redundant += 1
+@@ -237,7 +273,7 @@ class SimulationEnv:
+                 self.state.os_identified = True
+                 reward += R_USEFUL_ENUM
+ 
+-        elif a == Action.IDENTIFY_USER:
++        elif action_enum == Action.IDENTIFY_USER:
+             if self.state.user_identified:
+                 reward += R_REDUNDANT
+                 self._redundant += 1
+@@ -245,9 +281,8 @@ class SimulationEnv:
+                 self.state.user_identified = True
+                 reward += R_USEFUL_ENUM
+ 
+-        # ΓöÇΓöÇ Enumeration ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-        elif a in VECTOR_BY_CHECK_ACTION:
+-            vector = VECTOR_BY_CHECK_ACTION[a]
++        elif action_enum in VECTOR_BY_CHECK_ACTION:
++            vector = VECTOR_BY_CHECK_ACTION[action_enum]
+             if self.state.checked[vector]:
+                 reward += R_REDUNDANT
+                 self._redundant += 1
+@@ -260,23 +295,17 @@ class SimulationEnv:
+                     reward += R_DISCOVERY
+                     info["discovered_vector"] = vector
+ 
+-                    # Reveal richness
+                     raw_count = self.host.item_counts.get(vector, 0)
+-                    self.state.richness[vector] = min(
+-                        raw_count / MAX_RICHNESS, 1.0
+-                    )
++                    self.state.richness[vector] = min(raw_count / MAX_RICHNESS, 1.0)
+ 
+-                    # Reveal credential-specific info
+                     if vector == "credentials":
+                         self.state.cred_count = min(
+                             self.host.cred_type_count / MAX_RICHNESS, 1.0
+                         )
+                         self.state.cred_quality = self.host.cred_type_quality
+ 
+-        # ΓöÇΓöÇ Exploitation ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-        elif a in VECTOR_BY_EXPLOIT_ACTION:
+-            vector = VECTOR_BY_EXPLOIT_ACTION[a]
+-            # Penalize if not yet enumerated
++        elif action_enum in VECTOR_BY_EXPLOIT_ACTION:
++            vector = VECTOR_BY_EXPLOIT_ACTION[action_enum]
+             if not self.state.checked[vector]:
+                 reward += R_EXPLOIT_WITHOUT_ENUM
+                 info["unenumerated_exploit"] = True
+@@ -285,78 +314,75 @@ class SimulationEnv:
+                 reward += R_PREMATURE_ESCALATION
+                 info["premature_escalation"] = True
+             else:
+-                risk  = VECTOR_RISK_PENALTIES[vector]
++                risk = VECTOR_RISK_PENALTIES[vector]
+                 reward -= risk
+-                self._risk_exp    += risk
++                self._risk_exp += risk
+                 self._esc_attempts += 1
+ 
+-                richness = self.state.richness.get(vector, 0.0)
+-                cred_quality = self.state.cred_quality
+-
+-                success = _attempt_escalation(
+-                    self.host, vector, richness, cred_quality, self._rng
++                if vector == "kernel" and _safer_path_available(self.state):
++                    reward += R_UNSAFE_KERNEL_ATTEMPT
++                    self._kernel_attempted_while_safer_path_available = True
++                    info["safer_path_available"] = True
++                    info["unsafe_kernel_penalty"] = True
++
++                success, details = _attempt_escalation(
++                    self.host,
++                    self.state,
++                    vector,
++                    self._rng,
+                 )
+-                info["escalation_vector"]  = vector
++                info["escalation_vector"] = vector
+                 info["escalation_success"] = success
++                info.update(details)
+ 
+                 if success:
+                     self.state.current_privilege = 1
+                     reward += R_SUCCESS_ESCALATION
+                 else:
+-                    reward += R_FAILED_ESCALATION
+-                    # Record the failure
+-                    self.state.exploit_failures[vector] += 1
+-
+-        # ΓöÇΓöÇ Generic ESCALATE (finds best vector automatically) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-        elif a == Action.ESCALATE if hasattr(Action, "ESCALATE") else False:
+-            vector = _pick_best_vector(self.state)
+-            if vector is None:
+-                reward += R_PREMATURE_ESCALATION
+-            else:
+-                risk   = VECTOR_RISK_PENALTIES[vector]
+-                reward -= risk
+-                self._risk_exp    += risk
+-                self._esc_attempts += 1
+-
+-                richness = self.state.richness.get(vector, 0.0)
+-                cred_quality = self.state.cred_quality
+-
+-                success = _attempt_escalation(
+-                    self.host, vector, richness, cred_quality, self._rng
+-                )
+-                info["escalation_vector"]  = vector
+-                info["escalation_success"] = success
+-                if success:
+-                    self.state.current_privilege = 1
+-                    reward += R_SUCCESS_ESCALATION
+-                else:
+-                    reward += R_FAILED_ESCALATION
+                     self.state.exploit_failures[vector] += 1
++                    if exploit_retry_budget(vector) > 1:
++                        reward += R_RETRYABLE_FAILURE
++                    else:
++                        reward += R_FAILED_ESCALATION
+ 
+-        # ΓöÇΓöÇ Verify Root ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-        elif a == Action.VERIFY_ROOT:
++        elif action_enum == Action.VERIFY_ROOT:
+             if self.state.current_privilege == 1:
+                 reward += R_USEFUL_ENUM
+             else:
+                 reward += R_REDUNDANT
+ 
+-        # ΓöÇΓöÇ Stop ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-        elif a == Action.STOP:
++        elif action_enum == Action.STOP:
++            remaining_paths = self.host.remaining_hidden_paths(self.state)
++            info["remaining_hidden_paths"] = remaining_paths
++            if remaining_paths:
++                reward += R_PREMATURE_STOP
++                self._stop_was_correct = False
++            else:
++                reward += R_CORRECT_STOP
++                self._stop_was_correct = True
+             self._done = True
++            self._done_reason = "stop"
+ 
+-        self._steps     += 1
++        if (
++            high_confidence_path_available
++            and action_enum not in VECTOR_BY_EXPLOIT_ACTION
++            and action_enum not in (Action.VERIFY_ROOT, Action.STOP)
++        ):
++            reward += R_UNSAFE_KERNEL_ATTEMPT / 2.0
++            info["delayed_high_confidence_exploit"] = True
++
++        self._steps += 1
+         self._ep_reward += reward
+ 
+-        # ΓöÇΓöÇ Update temporal / risk features ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+         self.state.time_step = self._steps / self.max_steps
+-        self.state.cumulative_risk = min(
+-            self._risk_exp / MAX_CUMULATIVE_RISK, 1.0
+-        )
++        self.state.cumulative_risk = min(self._risk_exp / MAX_CUMULATIVE_RISK, 1.0)
+ 
+         if self.state.current_privilege == 1:
+             self._done = True
+-        if self._steps >= self.max_steps:
++            self._done_reason = "root"
++        elif self._steps >= self.max_steps:
+             self._done = True
++            self._done_reason = "max_steps"
+ 
+         if self._done:
+             info["episode"] = self._episode_metrics()
+@@ -366,21 +392,30 @@ class SimulationEnv:
+         info["action_mask"] = self._current_mask
+         return state_vec, reward, self._done, info
+ 
+-    # ΓöÇΓöÇ Metrics ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-
+     def _episode_metrics(self) -> Dict[str, Any]:
++        archetype = self.host.archetype if self.host else "unknown"
++        had_actionable_path = self.host.any_actionable_exploit() if self.host else False
+         return {
+-            "success":             self.state.current_privilege == 1,
+-            "steps":               self._steps,
+-            "reward":              self._ep_reward,
+-            "risk_exposure":       self._risk_exp,
+-            "redundant_actions":   self._redundant,
++            "success": self.state.current_privilege == 1,
++            "steps": self._steps,
++            "reward": self._ep_reward,
++            "risk_exposure": self._risk_exp,
++            "redundant_actions": self._redundant,
+             "escalation_attempts": self._esc_attempts,
++            "archetype": archetype,
++            "done_reason": self._done_reason,
++            "stop_episode": self._done_reason == "stop",
++            "stop_correct": self._stop_was_correct,
++            "kernel_attempted_while_safer_path_available": (
++                self._kernel_attempted_while_safer_path_available
++            ),
++            "had_actionable_path": had_actionable_path,
+         }
+ 
+     @property
+     def observation_space_size(self) -> int:
+         from postex_agent.core.state import STATE_DIM
++
+         return STATE_DIM
+ 
+     @property
+@@ -388,7 +423,6 @@ class SimulationEnv:
+         return ACTION_SPACE_SIZE
+ 
+     def action_mask(self) -> np.ndarray:
+-        """Return current valid-action mask (shape ACTION_SPACE_SIZE, bool)."""
+-        if hasattr(self, '_current_mask'):
++        if hasattr(self, "_current_mask"):
+             return self._current_mask
+         return compute_action_mask(self.state.to_vector())
+diff --git a/postex_agent/environment/state_builder.py b/postex_agent/environment/state_builder.py
+index 47b28d4..6a49f86 100644
+--- a/postex_agent/environment/state_builder.py
++++ b/postex_agent/environment/state_builder.py
+@@ -68,18 +68,33 @@ def update_state(state: HostState, action: Action, parsed: Dict) -> HostState:
+         state.os_identified = True
+         kernel_version = details.get("kernel_version")
+         os_name = details.get("os_name")
++        container_indicators = details.get("container_indicators", [])
+         if kernel_version:
+             state.kernel_version = kernel_version
+         if os_name:
+             state.os_info = os_name
++        if container_indicators:
++            state.container_indicators = _dedupe(
++                state.container_indicators,
++                container_indicators,
++            )
++        state.is_containerized = bool(
++            state.container_indicators or details.get("is_containerized", False)
++        )
+         return state
+ 
+     if action == Action.IDENTIFY_USER:
+         state.user_identified = True
+         username = details.get("username")
+         is_root = bool(details.get("is_root", False))
++        groups = details.get("groups", [])
++        privileged_groups = details.get("privileged_groups", [])
+         if username:
+             state.current_user = username
++        if groups:
++            state.user_groups = _dedupe(state.user_groups, groups)
++        if privileged_groups:
++            state.privileged_groups = _dedupe(state.privileged_groups, privileged_groups)
+         if is_root:
+             state.current_privilege = 1
+         return state
+@@ -97,6 +112,14 @@ def update_state(state: HostState, action: Action, parsed: Dict) -> HostState:
+         # ΓöÇΓöÇ Populate rich metadata (for CLI display) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+         if vector == "sudo":
+             state.sudo_commands = _dedupe(state.sudo_commands, details.get("sudo_commands", []))
++            state.sudo_nopasswd_entries = _dedupe(
++                state.sudo_nopasswd_entries,
++                details.get("nopasswd_entries", []),
++            )
++            state.sudo_password_entries = _dedupe(
++                state.sudo_password_entries,
++                details.get("passworded_entries", []),
++            )
+         elif vector == "suid":
+             state.exploitable_suid_bins = _dedupe(
+                 state.exploitable_suid_bins, details.get("exploitable_bins", [])
+@@ -109,6 +132,10 @@ def update_state(state: HostState, action: Action, parsed: Dict) -> HostState:
+             state.writable_paths = _dedupe(state.writable_paths, details.get("writable_paths", []))
+         elif vector == "cron":
+             state.cron_jobs = _dedupe(state.cron_jobs, details.get("cron_jobs", []))
++            state.cron_writable_targets = _dedupe(
++                state.cron_writable_targets,
++                details.get("writable_targets", details.get("potentially_writable", [])),
++            )
+         elif vector == "credentials":
+             state.credentials_found = _dedupe(
+                 state.credentials_found, details.get("credentials", [])
+diff --git a/postex_agent/execution/command_executor.py b/postex_agent/execution/command_executor.py
+index fac636d..a46dae3 100644
+--- a/postex_agent/execution/command_executor.py
++++ b/postex_agent/execution/command_executor.py
+@@ -40,11 +40,14 @@ class CommandExecutor:
+             }
+         """
+         started = time.time()
++        session_meta = self.session.metadata()
+ 
+         if not is_safe_command(command):
+             entry = {
+                 "ts":          datetime.now(timezone.utc).isoformat(),
+                 "action":      action_name,
++                "session_type": session_meta.get("session_type", ""),
++                "persistent_context": bool(session_meta.get("persistent_context", False)),
+                 "command":     command,
+                 "blocked":     True,
+                 "output":      "",
+@@ -59,6 +62,8 @@ class CommandExecutor:
+         entry = {
+             "ts":          datetime.now(timezone.utc).isoformat(),
+             "action":      action_name,
++            "session_type": session_meta.get("session_type", ""),
++            "persistent_context": bool(session_meta.get("persistent_context", False)),
+             "command":     command,
+             "blocked":     False,
+             "output":      session_result.get("output", ""),
+diff --git a/postex_agent/parsers/cron_parser.py b/postex_agent/parsers/cron_parser.py
+index c6aab2c..902df17 100644
+--- a/postex_agent/parsers/cron_parser.py
++++ b/postex_agent/parsers/cron_parser.py
+@@ -58,6 +58,7 @@ class CronParser(BaseParser):
+             "vector_found": bool(cron_jobs),
+             "details": {
+                 "cron_jobs":           cron_jobs,
++                "writable_targets":    writable_scripts,
+                 "potentially_writable": writable_scripts,
+             },
+         }
+diff --git a/postex_agent/parsers/identity_parser.py b/postex_agent/parsers/identity_parser.py
+index 0f87d91..f3073ff 100644
+--- a/postex_agent/parsers/identity_parser.py
++++ b/postex_agent/parsers/identity_parser.py
+@@ -10,6 +10,62 @@ from postex_agent.parsers.base_parser import BaseParser
+ _KERNEL_RE = re.compile(r"\b(\d+\.\d+\.\d+(?:[-._a-zA-Z0-9]+)?)\b")
+ _PRETTY_NAME_RE = re.compile(r'^PRETTY_NAME="?([^"\n]+)"?', re.MULTILINE)
+ _UID_RE = re.compile(r"uid=(\d+)\(([^)]+)\)")
++_GROUPS_RE = re.compile(r"groups=([^\n]+)")
++
++_CONTAINER_MARKERS = {
++    "docker",
++    "containerd",
++    "kubepods",
++    "podman",
++    "libpod",
++    "lxc",
++}
++
++_PRIVILEGED_GROUPS = {
++    "sudo",
++    "wheel",
++    "adm",
++    "docker",
++    "lxd",
++    "libvirt",
++    "disk",
++    "shadow",
++    "root",
++}
++
++
++def _extract_group_names(raw: str) -> list[str]:
++    match = _GROUPS_RE.search(raw)
++    if not match:
++        return []
++
++    groups_text = match.group(1).strip()
++    groups: list[str] = []
++    for entry in groups_text.split(","):
++        stripped = entry.strip()
++        name_match = re.search(r"\(([^)]+)\)", stripped)
++        name = name_match.group(1) if name_match else stripped
++        if name and name not in groups:
++            groups.append(name)
++    return groups
++
++
++def _extract_container_indicators(raw: str) -> list[str]:
++    lowered = raw.lower()
++    indicators: list[str] = []
++
++    for marker in _CONTAINER_MARKERS:
++        if marker in lowered and marker not in indicators:
++            indicators.append(marker)
++
++    for line in raw.splitlines():
++        stripped = line.strip()
++        if stripped.startswith("container:"):
++            value = stripped.split(":", 1)[1].strip().lower()
++            if value and value not in indicators:
++                indicators.append(value)
++
++    return indicators
+ 
+ 
+ class OSParser(BaseParser):
+@@ -23,6 +79,8 @@ class OSParser(BaseParser):
+         if os_name is None and "Linux" in raw:
+             os_name = "Linux"
+ 
++        container_indicators = _extract_container_indicators(raw)
++
+         return {
+             "vector_found": bool(kernel_version or os_name),
+             "exploitable": False,
+@@ -30,6 +88,8 @@ class OSParser(BaseParser):
+                 "raw": raw,
+                 "kernel_version": kernel_version,
+                 "os_name": os_name,
++                "container_indicators": container_indicators,
++                "is_containerized": bool(container_indicators),
+             },
+         }
+ 
+@@ -48,6 +108,9 @@ class UserParser(BaseParser):
+                 username = whoami[0].strip()
+                 uid = 0 if username == "root" else uid
+ 
++        groups = _extract_group_names(raw)
++        privileged_groups = [group for group in groups if group.lower() in _PRIVILEGED_GROUPS]
++
+         is_root = bool(uid == 0 or username == "root" or "uid=0(" in raw)
+ 
+         return {
+@@ -57,7 +120,8 @@ class UserParser(BaseParser):
+                 "raw": raw,
+                 "uid": uid,
+                 "username": username,
++                "groups": groups,
++                "privileged_groups": privileged_groups,
+                 "is_root": is_root,
+             },
+         }
+-
+diff --git a/postex_agent/parsers/sudo_parser.py b/postex_agent/parsers/sudo_parser.py
+index d54411d..2d61b08 100644
+--- a/postex_agent/parsers/sudo_parser.py
++++ b/postex_agent/parsers/sudo_parser.py
+@@ -32,6 +32,7 @@ class SudoParser(BaseParser):
+ 
+         sudo_commands: list[str] = []
+         nopasswd_entries: list[str] = []
++        passworded_entries: list[str] = []
+         exploitable_bins: list[str] = []
+ 
+         for line in lines:
+@@ -54,6 +55,9 @@ class SudoParser(BaseParser):
+                         base = Path(token).name.lower()
+                         if base in _GTFOBINS_HINTS and token not in exploitable_bins:
+                             exploitable_bins.append(token)
++            elif sudo_match:
++                command = sudo_match.group(1).strip()
++                passworded_entries.append(command)
+ 
+         denied = "not allowed to execute sudo" in raw.lower() or "may not run sudo" in raw.lower()
+         vector_found = bool(nopasswd_entries or exploitable_bins) and not denied
+@@ -65,6 +69,7 @@ class SudoParser(BaseParser):
+                 "raw": raw,
+                 "sudo_commands": sudo_commands,
+                 "nopasswd_entries": nopasswd_entries,
++                "passworded_entries": passworded_entries,
+                 "exploitable_bins": exploitable_bins,
+             },
+         }
+diff --git a/postex_agent/rl/baseline_policy.py b/postex_agent/rl/baseline_policy.py
+index 6b64fa6..82de6fc 100644
+--- a/postex_agent/rl/baseline_policy.py
++++ b/postex_agent/rl/baseline_policy.py
+@@ -1,11 +1,15 @@
+-"""Deterministic expert baseline policy for the 16-action practical action space."""
++"""Deterministic baseline policy for the Track 3 simulator."""
+ from __future__ import annotations
+ 
+ from typing import Dict, List
+ 
+ import numpy as np
+ 
+-from postex_agent.core.actions import Action, CHECK_ACTIONS, VECTOR_BY_CHECK_ACTION
++from postex_agent.core.actions import (
++    Action,
++    VECTOR_BY_CHECK_ACTION,
++    exploit_retry_budget,
++)
+ from postex_agent.core.state import HostState
+ 
+ 
+@@ -19,21 +23,36 @@ VECTOR_TO_EXPLOIT_ACTION: Dict[str, Action] = {
+ 
+ LOWEST_RISK_VECTOR_ORDER: List[str] = [
+     "sudo",
+-    "cron",
+     "suid",
+     "capabilities",
++    "cron",
+     "kernel",
+ ]
+ 
++CHECK_ORDER: List[Action] = [
++    Action.CHECK_SUDO,
++    Action.CHECK_SUID,
++    Action.CHECK_CAPABILITIES,
++    Action.CHECK_CRON,
++    Action.CHECK_WRITABLE,
++    Action.CHECK_KERNEL,
++    Action.SEARCH_CREDENTIALS,
++]
++
++
++def _can_retry(state: HostState, vector: str) -> bool:
++    return state.exploit_failures.get(vector, 0) < exploit_retry_budget(vector)
++
+ 
+ class BaselinePolicy:
+-    """
+-    Competent deterministic baseline:
+-    1) Identify OS
+-    2) Identify user
+-    3) Enumerate all vectors in a fixed order
+-    4) Exploit the lowest-risk found vector
+-    5) Verify root if currently root, else stop
++    """A competent baseline for Track 3.
++
++    The baseline behaves like a careful operator:
++    1. identify OS and user
++    2. exploit high-confidence vectors as soon as they are discovered
++    3. check writable paths before attempting cron
++    4. reserve kernel retries for when safer paths are exhausted
++    5. stop once realistic options are exhausted
+     """
+ 
+     def select_action(self, state_vector: np.ndarray) -> int:
+@@ -48,19 +67,27 @@ class BaselinePolicy:
+         if not state.user_identified:
+             return int(Action.IDENTIFY_USER)
+ 
+-        for action in CHECK_ACTIONS:
++        if state.found.get("sudo", False) and _can_retry(state, "sudo"):
++            return int(Action.EXPLOIT_SUDO)
++
++        if state.found.get("suid", False) and _can_retry(state, "suid"):
++            return int(Action.EXPLOIT_SUID)
++
++        if state.found.get("capabilities", False) and _can_retry(state, "capabilities"):
++            return int(Action.EXPLOIT_CAP)
++
++        if state.found.get("cron", False):
++            if not state.checked.get("writable_path", False):
++                return int(Action.CHECK_WRITABLE)
++            if _can_retry(state, "cron"):
++                return int(Action.EXPLOIT_CRON)
++
++        for action in CHECK_ORDER:
+             vector = VECTOR_BY_CHECK_ACTION[action]
+             if not state.checked[vector]:
+                 return int(action)
+ 
+-        for vector in LOWEST_RISK_VECTOR_ORDER:
+-            if state.found.get(vector, False):
+-                # Skip vectors we already tried and failed
+-                if state.exploit_failures.get(vector, 0) > 0:
+-                    continue
+-                exploit_action = VECTOR_TO_EXPLOIT_ACTION.get(vector)
+-                if exploit_action is not None:
+-                    return int(exploit_action)
++        if state.found.get("kernel", False) and _can_retry(state, "kernel"):
++            return int(Action.EXPLOIT_KERNEL)
+ 
+         return int(Action.STOP)
+-
+diff --git a/postex_agent/rl/dqn_agent.py b/postex_agent/rl/dqn_agent.py
+index e154b05..de572db 100644
+--- a/postex_agent/rl/dqn_agent.py
++++ b/postex_agent/rl/dqn_agent.py
+@@ -17,7 +17,7 @@ import torch
+ import torch.nn.functional as F
+ from torch.optim import Adam
+ 
+-from postex_agent.core.actions import ACTION_SPACE_SIZE
++from postex_agent.core.actions import ACTION_SPACE_SIZE, Action, compute_action_mask
+ from postex_agent.core.state import STATE_DIM
+ from postex_agent.rl.dqn_network import DQNNetwork
+ from postex_agent.rl.replay_buffer import PrioritizedReplayBuffer
+@@ -43,6 +43,38 @@ class DQNConfig:
+     per_beta_anneal_episodes: int  = 10_000
+ 
+ 
++def build_action_mask_batch(state_batch: np.ndarray) -> np.ndarray:
++    """Compute valid-action masks for a batch of state vectors."""
++    if state_batch.ndim != 2 or state_batch.shape[1] != STATE_DIM:
++        raise ValueError(
++            f"Expected state batch with shape (N, {STATE_DIM}), got {state_batch.shape}"
++        )
++
++    masks = np.stack([compute_action_mask(state) for state in state_batch], axis=0)
++    empty_rows = ~masks.any(axis=1)
++    if np.any(empty_rows):
++        masks[empty_rows, int(Action.STOP)] = True
++    return masks.astype(np.bool_, copy=False)
++
++
++def masked_double_dqn_next_q(
++    online_q: torch.Tensor,
++    target_q: torch.Tensor,
++    action_masks: torch.Tensor,
++) -> torch.Tensor:
++    """Return masked Double DQN bootstrap values for a batch."""
++    if online_q.shape != target_q.shape or online_q.shape != action_masks.shape:
++        raise ValueError(
++            "Expected online_q, target_q, and action_masks to share the same shape"
++        )
++
++    invalid_fill = torch.finfo(online_q.dtype).min
++    masked_online = online_q.masked_fill(~action_masks, invalid_fill)
++    next_actions = masked_online.argmax(dim=1, keepdim=True)
++    masked_target = target_q.masked_fill(~action_masks, invalid_fill)
++    return masked_target.gather(1, next_actions).squeeze(1)
++
++
+ class DQNAgent:
+     def __init__(
+         self,
+@@ -174,10 +206,16 @@ class DQNAgent:
+         w  = torch.from_numpy(is_weights).to(self.device)
+ 
+         q_vals = self.online_net(s).gather(1, a.unsqueeze(1)).squeeze(1)
++        next_masks = torch.from_numpy(build_action_mask_batch(next_states)).to(self.device)
+         with torch.no_grad():
+             # Double DQN: online net selects action, target net evaluates it
+-            next_actions = self.online_net(ns).argmax(dim=1, keepdim=True)
+-            next_q = self.target_net(ns).gather(1, next_actions).squeeze(1)
++            online_next_q = self.online_net(ns)
++            target_next_q = self.target_net(ns)
++            next_q = masked_double_dqn_next_q(
++                online_next_q,
++                target_next_q,
++                next_masks,
++            )
+             targets = r + self.config.gamma * (1.0 - d) * next_q
+ 
+         td_errors = (q_vals - targets).detach()
+diff --git a/postex_agent/rl/evaluate_dqn.py b/postex_agent/rl/evaluate_dqn.py
+index 17df7ae..07c427a 100644
+--- a/postex_agent/rl/evaluate_dqn.py
++++ b/postex_agent/rl/evaluate_dqn.py
+@@ -1,7 +1,4 @@
+-"""
+-Evaluate a trained DQN against the deterministic baseline policy.
+-Runs both policies across multiple seeds and computes bootstrap confidence intervals.
+-"""
++"""Evaluate a trained DQN against the deterministic baseline policy."""
+ from __future__ import annotations
+ 
+ import argparse
+@@ -16,12 +13,25 @@ from postex_agent.rl.baseline_policy import BaselinePolicy
+ 
+ 
+ RawMetrics = Dict[str, np.ndarray]
+-Summary = Dict[str, float]
++Summary = Dict[str, float | None]
+ SelectorFn = Callable[[np.ndarray], int]
+ SelectorFactory = Callable[[], SelectorFn]
+ 
+-
+-def run_episode(env: SimulationEnv, selector: SelectorFn) -> Dict[str, float]:
++NUMERIC_RAW_KEYS = [
++    "success",
++    "steps",
++    "reward",
++    "risk_exposure",
++    "redundant_actions",
++    "escalation_attempts",
++    "kernel_attempted_while_safer_path_available",
++    "stop_episode",
++    "stop_correct",
++    "had_actionable_path",
++]
++
++
++def run_episode(env: SimulationEnv, selector: SelectorFn) -> Dict[str, object]:
+     state = env.reset()
+     done = False
+     info: dict = {}
+@@ -36,35 +46,63 @@ def run_episode(env: SimulationEnv, selector: SelectorFn) -> Dict[str, float]:
+ 
+ def evaluate_seed(selector: SelectorFn, seed: int, episodes: int, max_steps: int) -> RawMetrics:
+     env = SimulationEnv(seed=seed, max_steps=max_steps)
+-    raw: Dict[str, List[float]] = {
+-        key: []
+-        for key in [
+-            "success",
+-            "steps",
+-            "reward",
+-            "risk_exposure",
+-            "redundant_actions",
+-            "escalation_attempts",
+-        ]
+-    }
++    raw_numeric: Dict[str, List[float]] = {key: [] for key in NUMERIC_RAW_KEYS}
++    archetypes: List[str] = []
++
+     for _ in range(episodes):
+         ep = run_episode(env, selector)
+-        for key in raw:
+-            raw[key].append(float(ep.get(key, 0)))
+-    return {k: np.array(v, dtype=np.float32) for k, v in raw.items()}
++        archetypes.append(str(ep.get("archetype", "unknown")))
++        for key in NUMERIC_RAW_KEYS:
++            raw_numeric[key].append(float(ep.get(key, 0.0)))
++
++    merged: RawMetrics = {
++        key: np.array(values, dtype=np.float32)
++        for key, values in raw_numeric.items()
++    }
++    merged["archetype"] = np.array(archetypes, dtype=object)
++    return merged
+ 
+ 
+ def summarize(raw: RawMetrics) -> Summary:
+-    return {
++    summary: Summary = {
+         "success_rate": float(raw["success"].mean()),
+         "avg_steps": float(raw["steps"].mean()),
+         "avg_reward": float(raw["reward"].mean()),
+         "avg_risk_exposure": float(raw["risk_exposure"].mean()),
+         "avg_redundant_actions": float(raw["redundant_actions"].mean()),
+         "avg_escalation_attempts": float(raw["escalation_attempts"].mean()),
++        "kernel_unsafe_rate": float(raw["kernel_attempted_while_safer_path_available"].mean()),
++        "stop_rate": float(raw["stop_episode"].mean()),
++        "actionable_host_rate": float(raw["had_actionable_path"].mean()),
+         "n_episodes": float(raw["success"].shape[0]),
+     }
+ 
++    stop_count = float(raw["stop_episode"].sum())
++    if stop_count > 0:
++        summary["stop_precision"] = float(raw["stop_correct"].sum() / stop_count)
++    else:
++        summary["stop_precision"] = None
++    return summary
++
++
++def summarize_by_archetype(raw: RawMetrics) -> Dict[str, Summary]:
++    archetypes = raw.get("archetype")
++    if archetypes is None:
++        return {}
++
++    summaries: Dict[str, Summary] = {}
++    for archetype in sorted({str(value) for value in archetypes.tolist()}):
++        mask = archetypes == archetype
++        subset: RawMetrics = {
++            key: values[mask]
++            for key, values in raw.items()
++        }
++        summary = summarize(subset)
++        if archetype == "hardened_host":
++            summary["stop_precision_on_hardened_hosts"] = summary.get("stop_precision")
++        summaries[archetype] = summary
++    return summaries
++
+ 
+ def evaluate_across_seeds(
+     factory: SelectorFactory,
+@@ -73,17 +111,7 @@ def evaluate_across_seeds(
+     max_steps: int,
+ ) -> Dict[str, object]:
+     per_seed: List[Summary] = []
+-    combined: Dict[str, List[np.ndarray]] = {
+-        key: []
+-        for key in [
+-            "success",
+-            "steps",
+-            "reward",
+-            "risk_exposure",
+-            "redundant_actions",
+-            "escalation_attempts",
+-        ]
+-    }
++    combined: Dict[str, List[np.ndarray]] = {key: [] for key in NUMERIC_RAW_KEYS + ["archetype"]}
+ 
+     for seed in seeds:
+         selector = factory()
+@@ -94,8 +122,13 @@ def evaluate_across_seeds(
+         for key in combined:
+             combined[key].append(raw[key])
+ 
+-    merged = {k: np.concatenate(v) for k, v in combined.items()}
+-    return {"per_seed": per_seed, "overall": summarize(merged), "raw": merged}
++    merged = {key: np.concatenate(values) for key, values in combined.items()}
++    return {
++        "per_seed": per_seed,
++        "overall": summarize(merged),
++        "per_archetype": summarize_by_archetype(merged),
++        "raw": merged,
++    }
+ 
+ 
+ def bootstrap_diff(
+@@ -134,6 +167,7 @@ def statistical_comparison(
+         "avg_risk_exposure": "risk_exposure",
+         "avg_redundant_actions": "redundant_actions",
+         "avg_escalation_attempts": "escalation_attempts",
++        "kernel_unsafe_rate": "kernel_attempted_while_safer_path_available",
+     }
+     return {
+         label: bootstrap_diff(
+@@ -151,8 +185,8 @@ def success_criteria(
+     dqn_overall: Summary,
+     comparison: Dict[str, Dict[str, float]],
+ ) -> Dict[str, object]:
+-    base_steps = baseline_overall["avg_steps"]
+-    dqn_steps = dqn_overall["avg_steps"]
++    base_steps = float(baseline_overall["avg_steps"] or 0.0)
++    dqn_steps = float(dqn_overall["avg_steps"] or 0.0)
+     step_reduction = (base_steps - dqn_steps) / base_steps if base_steps > 0 else 0.0
+     return {
+         "dqn_success_rate": dqn_overall["success_rate"],
+@@ -160,25 +194,36 @@ def success_criteria(
+         "dqn_avg_steps": dqn_steps,
+         "baseline_avg_steps": base_steps,
+         "step_reduction_pct": round(100.0 * step_reduction, 2),
+-        "meets_success_target_>=82pct": dqn_overall["success_rate"] >= 0.82,
+-        "meets_step_target_<=8": dqn_steps <= 8.0,
+-        "meets_20pct_step_reduction": step_reduction >= 0.20,
++        "dqn_beats_baseline_success": (
++            float(dqn_overall["success_rate"] or 0.0)
++            > float(baseline_overall["success_rate"] or 0.0)
++        ),
++        "dqn_uses_fewer_steps": dqn_steps < base_steps,
+         "risk_not_significantly_worse": comparison["avg_risk_exposure"]["ci_low"] <= 0.0,
++        "kernel_discipline_not_significantly_worse": (
++            comparison["kernel_unsafe_rate"]["ci_low"] <= 0.0
++        ),
+     }
+ 
+ 
++def _format_metric(value: float | None) -> str:
++    if value is None:
++        return "n/a"
++    return f"{value:.4f}"
++
++
+ def print_report(report: Dict[str, object]) -> None:
+-    b = report["baseline"]["overall"]
+-    d = report["dqn"]["overall"]
+-    c = report["comparison"]
++    baseline = report["baseline"]["overall"]
++    dqn = report["dqn"]["overall"]
++    comparison = report["comparison"]
+     criteria = report["criteria"]
+ 
+-    width = 72
++    width = 86
+     print("\n" + "=" * width)
+     print("EVALUATION REPORT - DQN vs Deterministic Baseline")
+     print("=" * width)
+ 
+-    print(f"\n{'Metric':<30} {'Baseline':>10} {'DQN':>10} {'Delta':>10}")
++    print(f"\n{'Metric':<34} {'Baseline':>10} {'DQN':>10} {'Delta':>10}")
+     print("-" * width)
+     rows = [
+         ("Success rate", "success_rate", True),
+@@ -187,27 +232,53 @@ def print_report(report: Dict[str, object]) -> None:
+         ("Avg risk exposure", "avg_risk_exposure", False),
+         ("Avg redundant actions", "avg_redundant_actions", False),
+         ("Avg escalation attempts", "avg_escalation_attempts", False),
++        ("Kernel unsafe rate", "kernel_unsafe_rate", False),
+     ]
+     for label, key, higher_better in rows:
+-        baseline_value = b[key]
+-        dqn_value = d[key]
++        baseline_value = float(baseline[key] or 0.0)
++        dqn_value = float(dqn[key] or 0.0)
+         delta = dqn_value - baseline_value
+         direction = "UP" if (delta > 0) == higher_better else "DOWN"
+-        print(f"  {label:<28} {baseline_value:>10.4f} {dqn_value:>10.4f} {delta:>+9.4f} {direction}")
++        print(
++            f"  {label:<32} "
++            f"{baseline_value:>10.4f} {dqn_value:>10.4f} {delta:>+9.4f} {direction}"
++        )
+ 
+     print(f"\n{'-' * width}")
+     print("Bootstrap 95% CI (DQN - Baseline)")
+-    print(f"  {'Metric':<28} {'Diff':>10}  {'CI':>24}")
++    print(f"  {'Metric':<32} {'Diff':>10}  {'CI':>24}")
++    print(f"  {'-' * 72}")
++    for label, stats in comparison.items():
++        print(
++            f"  {label:<32} {stats['difference']:>+10.4f}  "
++            f"[{stats['ci_low']:>+9.4f}, {stats['ci_high']:>+9.4f}]"
++        )
++
++    print(f"\n{'-' * width}")
++    print("Per-Archetype Summary")
++    print(f"  {'Archetype':<20} {'Policy':<10} {'Success':>10} {'Steps':>10} {'Risk':>10}")
+     print(f"  {'-' * 66}")
+-    for label, stats in c.items():
+-        diff = stats["difference"]
+-        low = stats["ci_low"]
+-        high = stats["ci_high"]
+-        print(f"  {label:<28} {diff:>+10.4f}  [{low:>+9.4f}, {high:>+9.4f}]")
++    baseline_archetypes = report["baseline"]["per_archetype"]
++    dqn_archetypes = report["dqn"]["per_archetype"]
++    for archetype in sorted(set(baseline_archetypes) | set(dqn_archetypes)):
++        base_summary = baseline_archetypes.get(archetype, {})
++        dqn_summary = dqn_archetypes.get(archetype, {})
++        print(
++            f"  {archetype:<20} {'baseline':<10} "
++            f"{_format_metric(base_summary.get('success_rate')):>10} "
++            f"{_format_metric(base_summary.get('avg_steps')):>10} "
++            f"{_format_metric(base_summary.get('avg_risk_exposure')):>10}"
++        )
++        print(
++            f"  {'':<20} {'dqn':<10} "
++            f"{_format_metric(dqn_summary.get('success_rate')):>10} "
++            f"{_format_metric(dqn_summary.get('avg_steps')):>10} "
++            f"{_format_metric(dqn_summary.get('avg_risk_exposure')):>10}"
++        )
+ 
+     print(f"\n{'-' * width}")
+     print("Success Criteria")
+-    print(f"  {'-' * 66}")
++    print(f"  {'-' * 72}")
+     for key, value in criteria.items():
+         if isinstance(value, bool):
+             status = "[OK]" if value else "[NO]"
+@@ -217,6 +288,20 @@ def print_report(report: Dict[str, object]) -> None:
+     print("=" * width + "\n")
+ 
+ 
++def _serializable_summary(summary: Summary) -> Dict[str, float | None]:
++    return {
++        key: (float(value) if isinstance(value, (int, float, np.floating)) else value)
++        for key, value in summary.items()
++    }
++
++
++def _serializable_per_archetype(per_archetype: Dict[str, Summary]) -> Dict[str, Dict[str, float | None]]:
++    return {
++        archetype: _serializable_summary(summary)
++        for archetype, summary in per_archetype.items()
++    }
++
++
+ def evaluate(
+     model_path: str,
+     seeds: Sequence[int],
+@@ -241,7 +326,7 @@ def evaluate(
+ 
+         rl_policy = RLPolicy(model_path=model_path, device=device)
+         dqn_results = evaluate_across_seeds(
+-            factory=lambda: (lambda sv: int(rl_policy.predict(sv))),
++            factory=lambda: (lambda state_vector: int(rl_policy.predict(state_vector))),
+             seeds=seeds,
+             episodes_per_seed=episodes_per_seed,
+             max_steps=max_steps,
+@@ -283,12 +368,14 @@ def evaluate(
+     os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+     serializable = {
+         "baseline": {
+-            "overall": baseline_results["overall"],
+-            "per_seed": baseline_results["per_seed"],
++            "overall": _serializable_summary(baseline_results["overall"]),
++            "per_seed": [_serializable_summary(summary) for summary in baseline_results["per_seed"]],
++            "per_archetype": _serializable_per_archetype(baseline_results["per_archetype"]),
+         },
+         "dqn": {
+-            "overall": dqn_results["overall"],
+-            "per_seed": dqn_results["per_seed"],
++            "overall": _serializable_summary(dqn_results["overall"]),
++            "per_seed": [_serializable_summary(summary) for summary in dqn_results["per_seed"]],
++            "per_archetype": _serializable_per_archetype(dqn_results["per_archetype"]),
+         },
+         "comparison": comparison,
+         "criteria": criteria,
+@@ -332,4 +419,3 @@ def _cli() -> None:
+ 
+ if __name__ == "__main__":
+     _cli()
+-
+diff --git a/postex_agent/rl/train_dqn.py b/postex_agent/rl/train_dqn.py
+index b06d7e6..b5ad596 100644
+--- a/postex_agent/rl/train_dqn.py
++++ b/postex_agent/rl/train_dqn.py
+@@ -1,10 +1,13 @@
+ """
+ DQN training entrypoint.
++
+ Trains the agent on the SimulationEnv and saves:
+-  - model checkpoint  (artifacts/dqn_model.pt)
+-  - per-episode CSV   (artifacts/dqn_training_history.csv)
+-  - training log      (artifacts/training_log.txt)
+-  - training curves   (artifacts/training_curve.png)
++  - final model checkpoint
++  - best validation checkpoint
++  - per-episode training CSV
++  - per-interval validation CSV
++  - human-readable training log
++  - training curve PNG
+ """
+ from __future__ import annotations
+ 
+@@ -23,7 +26,8 @@ from postex_agent.environment.simulation_env import SimulationEnv
+ from postex_agent.rl.dqn_agent import DQNAgent, DQNConfig
+ 
+ 
+-# ΓöÇΓöÇ Utilities ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++ValidationMetrics = Dict[str, float]
++
+ 
+ def set_global_seed(seed: int) -> None:
+     random.seed(seed)
+@@ -34,21 +38,85 @@ def set_global_seed(seed: int) -> None:
+ 
+ 
+ def _rolling_mean(history: List[Dict[str, float]], key: str, window: int) -> float:
+-    vals = [h[key] for h in history[-window:]]
+-    return float(np.mean(vals)) if vals else 0.0
++    values = [row[key] for row in history[-window:]]
++    return float(np.mean(values)) if values else 0.0
+ 
+ 
+ def _save_csv(path: str, rows: List[Dict[str, float]]) -> None:
+     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+     if not rows:
+         return
+-    with open(path, "w", newline="", encoding="utf-8") as fh:
+-        writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
++    with open(path, "w", newline="", encoding="utf-8") as handle:
++        writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+         writer.writeheader()
+         writer.writerows(rows)
+ 
+ 
+-# ΓöÇΓöÇ Training log writer ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
++def _default_best_model_path(model_path: str) -> str:
++    root, ext = os.path.splitext(model_path)
++    return f"{root}_best{ext or '.pt'}"
++
++
++def _validation_rank(metrics: ValidationMetrics) -> Tuple[float, float, float, float]:
++    """Rank by success first, then faster / lower-risk behaviour."""
++    return (
++        float(metrics["success_rate"]),
++        -float(metrics["avg_steps"]),
++        -float(metrics["avg_risk_exposure"]),
++        float(metrics["avg_reward"]),
++    )
++
++
++def _is_better_validation(
++    candidate: ValidationMetrics,
++    incumbent: Optional[ValidationMetrics],
++) -> bool:
++    if incumbent is None:
++        return True
++    return _validation_rank(candidate) > _validation_rank(incumbent)
++
++
++def evaluate_validation(
++    agent: DQNAgent,
++    *,
++    episodes: int,
++    seed: int,
++    max_steps: int,
++) -> ValidationMetrics:
++    """Run deterministic validation episodes for checkpoint selection."""
++    env = SimulationEnv(seed=seed, max_steps=max_steps)
++
++    total_success = 0
++    total_steps = 0.0
++    total_reward = 0.0
++    total_risk = 0.0
++
++    for episode_index in range(episodes):
++        state = env.reset(seed=seed + episode_index)
++        mask = env.action_mask()
++        done = False
++        info: Dict[str, object] = {}
++
++        while not done:
++            action = agent.select_action(state, explore=False, mask=mask)
++            state, _, done, info = env.step(action)
++            mask = info.get("action_mask", mask)
++
++        episode = info.get("episode", {})
++        if isinstance(episode, dict):
++            total_success += int(bool(episode.get("success", False)))
++            total_steps += float(episode.get("steps", 0.0))
++            total_reward += float(episode.get("reward", 0.0))
++            total_risk += float(episode.get("risk_exposure", 0.0))
++
++    denom = float(max(episodes, 1))
++    return {
++        "success_rate": total_success / denom,
++        "avg_steps": total_steps / denom,
++        "avg_reward": total_reward / denom,
++        "avg_risk_exposure": total_risk / denom,
++    }
++
+ 
+ def _write_training_log(
+     log_path: str,
+@@ -63,136 +131,183 @@ def _write_training_log(
+     elapsed_sec: float,
+     model_path: str,
+     history_path: str,
++    validation_history: Optional[List[Dict[str, float]]] = None,
++    best_validation: Optional[ValidationMetrics] = None,
++    best_validation_episode: Optional[int] = None,
++    best_model_path: Optional[str] = None,
++    validation_history_path: Optional[str] = None,
+ ) -> None:
+-    """Write a detailed human-readable training log to *log_path*."""
+     os.makedirs(os.path.dirname(log_path) or ".", exist_ok=True)
+-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
++    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+ 
+-    # Compute milestone rolling metrics
+-    milestones = []
+-    windows = [100, 500, 1000]
+-    for w in windows:
+-        if len(history) >= w:
++    milestones: List[str] = []
++    for window in (100, 500, 1000):
++        if len(history) >= window:
+             milestones.append(
+-                f"  Last {w:>5d} eps:  "
+-                f"success={_rolling_mean(history, 'success', w):.4f}  "
+-                f"reward={_rolling_mean(history, 'reward', w):>8.3f}  "
+-                f"steps={_rolling_mean(history, 'steps', w):>6.2f}  "
+-                f"loss={_rolling_mean(history, 'mean_loss', w):>7.4f}  "
+-                f"risk={_rolling_mean(history, 'risk_exposure', w):>6.4f}"
++                f"  Last {window:>5d} eps:  "
++                f"success={_rolling_mean(history, 'success', window):.4f}  "
++                f"reward={_rolling_mean(history, 'reward', window):>8.3f}  "
++                f"steps={_rolling_mean(history, 'steps', window):>6.2f}  "
++                f"loss={_rolling_mean(history, 'mean_loss', window):>7.4f}  "
++                f"risk={_rolling_mean(history, 'risk_exposure', window):>6.4f}"
+             )
+ 
+-    # Best / worst episode
+-    best_ep  = max(history, key=lambda r: r["reward"])
+-    worst_ep = min(history, key=lambda r: r["reward"])
+-
+-    with open(log_path, "w", encoding="utf-8") as f:
+-        f.write("=" * 72 + "\n")
+-        f.write("  PostEx Agent ΓÇö DQN Training Log\n")
+-        f.write("=" * 72 + "\n\n")
+-        f.write(f"  Timestamp      : {ts}\n")
+-        f.write(f"  Duration       : {elapsed_sec:.1f}s ({elapsed_sec/60:.1f}m)\n")
+-        f.write(f"  Device         : {device}\n\n")
+-
+-        # ΓöÇΓöÇ Hyperparameters
+-        f.write("-" * 72 + "\n")
+-        f.write("  HYPERPARAMETERS\n")
+-        f.write("-" * 72 + "\n")
+-        f.write(f"  Episodes              : {episodes}\n")
+-        f.write(f"  Seed                  : {seed}\n")
+-        f.write(f"  Max steps / episode   : {max_steps}\n")
+-        f.write(f"  Network               : {config.state_dim}ΓåÆ{config.hidden_dim}ΓåÆ{config.hidden_dim}ΓåÆ{config.action_dim}\n")
+-        f.write(f"  Gamma                 : {config.gamma}\n")
+-        f.write(f"  Learning rate         : {config.learning_rate}\n")
+-        f.write(f"  Replay buffer size    : {config.replay_buffer_size}\n")
+-        f.write(f"  Batch size            : {config.batch_size}\n")
+-        f.write(f"  Target net update     : every {config.target_update_interval} steps\n")
+-        f.write(f"  Epsilon schedule      : {config.epsilon_start}ΓåÆ{config.epsilon_end} over {config.epsilon_decay_episodes} eps\n\n")
+-
+-        # ΓöÇΓöÇ Per-interval progress
+-        f.write("-" * 72 + "\n")
+-        f.write("  TRAINING PROGRESS\n")
+-        f.write("-" * 72 + "\n")
+-        f.write(f"  {'Episode':>8s}  {'Epsilon':>8s}  {'Success':>8s}  {'Reward':>8s}  {'Steps':>8s}  {'Loss':>10s}  {'Risk':>8s}  {'Redundant':>10s}\n")
+-        f.write(f"  {'--------':>8s}  {'--------':>8s}  {'--------':>8s}  {'--------':>8s}  {'--------':>8s}  {'----------':>10s}  {'--------':>8s}  {'----------':>10s}\n")
++    best_episode = max(history, key=lambda row: row["reward"])
++    worst_episode = min(history, key=lambda row: row["reward"])
++
++    with open(log_path, "w", encoding="utf-8") as handle:
++        handle.write("=" * 72 + "\n")
++        handle.write("  PostEx Agent - DQN Training Log\n")
++        handle.write("=" * 72 + "\n\n")
++        handle.write(f"  Timestamp      : {timestamp}\n")
++        handle.write(f"  Duration       : {elapsed_sec:.1f}s ({elapsed_sec / 60:.1f}m)\n")
++        handle.write(f"  Device         : {device}\n\n")
++
++        handle.write("-" * 72 + "\n")
++        handle.write("  HYPERPARAMETERS\n")
++        handle.write("-" * 72 + "\n")
++        handle.write(f"  Episodes              : {episodes}\n")
++        handle.write(f"  Seed                  : {seed}\n")
++        handle.write(f"  Max steps / episode   : {max_steps}\n")
++        handle.write(
++            f"  Network               : "
++            f"{config.state_dim}->{config.hidden_dim}->{config.hidden_dim}->{config.action_dim}\n"
++        )
++        handle.write(f"  Gamma                 : {config.gamma}\n")
++        handle.write(f"  Learning rate         : {config.learning_rate}\n")
++        handle.write(f"  Replay buffer size    : {config.replay_buffer_size}\n")
++        handle.write(f"  Batch size            : {config.batch_size}\n")
++        handle.write(f"  Target net update     : every {config.target_update_interval} steps\n")
++        handle.write(
++            f"  Epsilon schedule      : "
++            f"{config.epsilon_start}->{config.epsilon_end} over "
++            f"{config.epsilon_decay_episodes} eps\n\n"
++        )
++
++        handle.write("-" * 72 + "\n")
++        handle.write("  TRAINING PROGRESS\n")
++        handle.write("-" * 72 + "\n")
++        handle.write(
++            f"  {'Episode':>8s}  {'Epsilon':>8s}  {'Success':>8s}  {'Reward':>8s}  "
++            f"{'Steps':>8s}  {'Loss':>10s}  {'Risk':>8s}  {'Redundant':>10s}\n"
++        )
++        handle.write(
++            f"  {'--------':>8s}  {'--------':>8s}  {'--------':>8s}  {'--------':>8s}  "
++            f"{'--------':>8s}  {'----------':>10s}  {'--------':>8s}  {'----------':>10s}\n"
++        )
+         for line in interval_logs:
+-            f.write(f"  {line}\n")
+-        f.write("\n")
+-
+-        # ΓöÇΓöÇ Rolling-window summary
+-        f.write("-" * 72 + "\n")
+-        f.write("  ROLLING-WINDOW SUMMARY\n")
+-        f.write("-" * 72 + "\n")
+-        for m in milestones:
+-            f.write(m + "\n")
+-        f.write("\n")
+-
+-        # ΓöÇΓöÇ Overall summary
+-        f.write("-" * 72 + "\n")
+-        f.write("  FINAL RESULTS\n")
+-        f.write("-" * 72 + "\n")
+-        for k, v in summary.items():
+-            f.write(f"  {k:<20s}: {v:.4f}\n" if isinstance(v, float) else f"  {k:<20s}: {v}\n")
+-        f.write("\n")
+-
+-        # ΓöÇΓöÇ Best / worst
+-        f.write("-" * 72 + "\n")
+-        f.write("  NOTABLE EPISODES\n")
+-        f.write("-" * 72 + "\n")
+-        f.write(f"  Best  reward : ep {int(best_ep['episode']):>6d}  reward={best_ep['reward']:>8.2f}  steps={int(best_ep['steps']):>3d}  success={int(best_ep['success'])}\n")
+-        f.write(f"  Worst reward : ep {int(worst_ep['episode']):>6d}  reward={worst_ep['reward']:>8.2f}  steps={int(worst_ep['steps']):>3d}  success={int(worst_ep['success'])}\n\n")
+-
+-        # ΓöÇΓöÇ Output files
+-        f.write("-" * 72 + "\n")
+-        f.write("  OUTPUT FILES\n")
+-        f.write("-" * 72 + "\n")
+-        f.write(f"  Model checkpoint : {model_path}\n")
+-        f.write(f"  Training CSV     : {history_path}\n")
+-        f.write(f"  Training log     : {log_path}\n")
++            handle.write(f"  {line}\n")
++        handle.write("\n")
++
++        handle.write("-" * 72 + "\n")
++        handle.write("  ROLLING-WINDOW SUMMARY\n")
++        handle.write("-" * 72 + "\n")
++        for line in milestones:
++            handle.write(line + "\n")
++        handle.write("\n")
++
++        if validation_history:
++            handle.write("-" * 72 + "\n")
++            handle.write("  VALIDATION SUMMARY\n")
++            handle.write("-" * 72 + "\n")
++            for row in validation_history:
++                handle.write(
++                    "  "
++                    f"ep={int(row['episode']):>6d}  "
++                    f"success={row['success_rate']:.4f}  "
++                    f"steps={row['avg_steps']:.2f}  "
++                    f"reward={row['avg_reward']:.3f}  "
++                    f"risk={row['avg_risk_exposure']:.4f}\n"
++                )
++            if best_validation is not None and best_validation_episode is not None:
++                handle.write("\n")
++                handle.write(
++                    "  Best validation checkpoint: "
++                    f"ep {best_validation_episode}  "
++                    f"success={best_validation['success_rate']:.4f}  "
++                    f"steps={best_validation['avg_steps']:.2f}  "
++                    f"risk={best_validation['avg_risk_exposure']:.4f}\n"
++                )
++            handle.write("\n")
++
++        handle.write("-" * 72 + "\n")
++        handle.write("  FINAL RESULTS\n")
++        handle.write("-" * 72 + "\n")
++        for key, value in summary.items():
++            if isinstance(value, float):
++                handle.write(f"  {key:<24s}: {value:.4f}\n")
++            else:
++                handle.write(f"  {key:<24s}: {value}\n")
++        handle.write("\n")
++
++        handle.write("-" * 72 + "\n")
++        handle.write("  NOTABLE EPISODES\n")
++        handle.write("-" * 72 + "\n")
++        handle.write(
++            f"  Best  reward : ep {int(best_episode['episode']):>6d}  "
++            f"reward={best_episode['reward']:>8.2f}  "
++            f"steps={int(best_episode['steps']):>3d}  "
++            f"success={int(best_episode['success'])}\n"
++        )
++        handle.write(
++            f"  Worst reward : ep {int(worst_episode['episode']):>6d}  "
++            f"reward={worst_episode['reward']:>8.2f}  "
++            f"steps={int(worst_episode['steps']):>3d}  "
++            f"success={int(worst_episode['success'])}\n\n"
++        )
++
++        handle.write("-" * 72 + "\n")
++        handle.write("  OUTPUT FILES\n")
++        handle.write("-" * 72 + "\n")
++        handle.write(f"  Final checkpoint: {model_path}\n")
++        if best_model_path:
++            handle.write(f"  Best checkpoint : {best_model_path}\n")
++        handle.write(f"  Training CSV    : {history_path}\n")
++        if validation_history_path:
++            handle.write(f"  Validation CSV  : {validation_history_path}\n")
++        handle.write(f"  Training log    : {log_path}\n")
+         curve_path = os.path.join(os.path.dirname(log_path), "training_curve.png")
+-        f.write(f"  Training curve   : {curve_path}\n\n")
+-        f.write("=" * 72 + "\n")
+-
++        handle.write(f"  Training curve  : {curve_path}\n\n")
++        handle.write("=" * 72 + "\n")
+ 
+-# ΓöÇΓöÇ Training curve plotter ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+ 
+ def _plot_training_curves(history: List[Dict[str, float]], output_path: str) -> None:
+-    """Generate a 4-panel training curve PNG from episode history."""
+     try:
+         import matplotlib
++
+         matplotlib.use("Agg")
+         import matplotlib.pyplot as plt
+     except ImportError:
+-        print("[train] matplotlib not available ΓÇö skipping curve plot")
++        print("[train] matplotlib not available - skipping curve plot")
+         return
+ 
+-    episodes = [int(h["episode"]) for h in history]
++    episodes = [int(row["episode"]) for row in history]
+     window = min(500, len(history) // 4) or 1
+ 
+     def _rolling(key: str) -> List[float]:
+-        vals = [h[key] for h in history]
+-        out = []
+-        for i in range(len(vals)):
+-            start = max(0, i - window + 1)
+-            out.append(float(np.mean(vals[start : i + 1])))
+-        return out
+-
+-    r_success = _rolling("success")
+-    r_reward  = _rolling("reward")
+-    r_steps   = _rolling("steps")
+-    r_loss    = _rolling("mean_loss")
+-    epsilons  = [h["epsilon"] for h in history]
++        values = [row[key] for row in history]
++        rolled: List[float] = []
++        for index in range(len(values)):
++            start = max(0, index - window + 1)
++            rolled.append(float(np.mean(values[start : index + 1])))
++        return rolled
++
++    rolling_success = _rolling("success")
++    rolling_reward = _rolling("reward")
++    rolling_steps = _rolling("steps")
++    rolling_loss = _rolling("mean_loss")
++    epsilons = [row["epsilon"] for row in history]
+ 
+     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+     fig.suptitle(
+         f"DQN Training Curves ({len(history):,} Episodes)",
+-        fontsize=14, fontweight="bold",
++        fontsize=14,
++        fontweight="bold",
+     )
+ 
+-    # ΓöÇΓöÇ Success rate
+     ax = axes[0, 0]
+-    ax.plot(episodes, r_success, color="#2ecc71", linewidth=1.5)
+-    ax.axhline(y=0.85, color="#e74c3c", linestyle="--", alpha=0.7, label="Baseline (85%)")
++    ax.plot(episodes, rolling_success, color="#2ecc71", linewidth=1.5)
++    ax.axhline(y=0.85, color="#e74c3c", linestyle="--", alpha=0.7, label="Target (0.85)")
+     ax.set_title(f"Success Rate ({window}-ep rolling)")
+     ax.set_xlabel("Episode")
+     ax.set_ylabel("Success Rate")
+@@ -200,29 +315,26 @@ def _plot_training_curves(history: List[Dict[str, float]], output_path: str) ->
+     ax.legend()
+     ax.grid(True, alpha=0.3)
+ 
+-    # ΓöÇΓöÇ Mean reward
+     ax = axes[0, 1]
+-    ax.plot(episodes, r_reward, color="#3498db", linewidth=1.5)
++    ax.plot(episodes, rolling_reward, color="#3498db", linewidth=1.5)
+     ax.set_title(f"Mean Reward ({window}-ep rolling)")
+     ax.set_xlabel("Episode")
+     ax.set_ylabel("Reward")
+     ax.grid(True, alpha=0.3)
+ 
+-    # ΓöÇΓöÇ Mean steps
+     ax = axes[1, 0]
+-    ax.plot(episodes, r_steps, color="#e67e22", linewidth=1.5)
++    ax.plot(episodes, rolling_steps, color="#e67e22", linewidth=1.5)
+     ax.set_title(f"Mean Steps per Episode ({window}-ep rolling)")
+     ax.set_xlabel("Episode")
+     ax.set_ylabel("Steps")
+     ax.grid(True, alpha=0.3)
+ 
+-    # ΓöÇΓöÇ Loss + epsilon
+     ax = axes[1, 1]
+-    ax.plot(episodes, r_loss, color="#9b59b6", linewidth=1.5, label="Loss")
++    ax.plot(episodes, rolling_loss, color="#9b59b6", linewidth=1.5, label="Loss")
+     ax2 = ax.twinx()
+     ax2.plot(episodes, epsilons, color="#95a5a6", linewidth=1, alpha=0.6, label="Epsilon")
+     ax2.set_ylabel("Epsilon", color="#95a5a6")
+-    ax.set_title("Mean Loss & Epsilon Schedule")
++    ax.set_title("Mean Loss and Epsilon Schedule")
+     ax.set_xlabel("Episode")
+     ax.set_ylabel("Loss")
+     ax.legend(loc="upper left")
+@@ -233,110 +345,170 @@ def _plot_training_curves(history: List[Dict[str, float]], output_path: str) ->
+     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+     plt.savefig(output_path, dpi=150, bbox_inches="tight")
+     plt.close(fig)
+-    print(f"[train] saved training curve ΓåÆ {output_path}")
++    print(f"[train] saved training curve -> {output_path}")
+ 
+ 
+-# ΓöÇΓöÇ Main training function ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+-
+ def train(
+-    episodes:      int = 10_000,
+-    seed:          int = 42,
+-    max_steps:     int = 20,
+-    model_path:    str = "artifacts/dqn_model.pt",
+-    history_path:  str = "artifacts/dqn_training_history.csv",
+-    log_interval:  int = 500,
+-    device:        Optional[str] = None,
++    episodes: int = 10_000,
++    seed: int = 42,
++    max_steps: int = 20,
++    model_path: str = "artifacts/dqn_model.pt",
++    history_path: str = "artifacts/dqn_training_history.csv",
++    log_interval: int = 500,
++    validation_episodes: int = 200,
++    validation_interval: int = 500,
++    validation_seed: Optional[int] = None,
++    best_model_path: Optional[str] = None,
++    device: Optional[str] = None,
+ ) -> Tuple[DQNAgent, Dict[str, float]]:
+-
+     set_global_seed(seed)
+-    env    = SimulationEnv(seed=seed, max_steps=max_steps)
++    env = SimulationEnv(seed=seed, max_steps=max_steps)
+     config = DQNConfig()
+-    agent  = DQNAgent(config=config, seed=seed, device=device)
++    agent = DQNAgent(config=config, seed=seed, device=device)
+     resolved_device = str(agent.device)
+ 
++    validation_seed = validation_seed if validation_seed is not None else seed + 10_000
++    validation_interval = validation_interval or log_interval
++    best_model_path = best_model_path or _default_best_model_path(model_path)
++    validation_enabled = validation_episodes > 0 and validation_interval > 0
++
+     total_steps = 0
+     history: List[Dict[str, float]] = []
++    validation_history: List[Dict[str, float]] = []
+     interval_logs: List[str] = []
+-    t_start = time.time()
++    best_validation: Optional[ValidationMetrics] = None
++    best_validation_episode: Optional[int] = None
++    start_time = time.time()
+ 
+-    for ep in range(episodes):
++    for episode_index in range(episodes):
+         state = env.reset()
+-        mask  = env.action_mask()
+-        agent.set_epsilon(ep)
+-        agent.set_beta(ep)
+-        done   = False
++        mask = env.action_mask()
++        agent.set_epsilon(episode_index)
++        agent.set_beta(episode_index)
++        done = False
+         losses: List[float] = []
+ 
+         while not done:
+-            action     = agent.select_action(state, explore=True, mask=mask)
++            action = agent.select_action(state, explore=True, mask=mask)
+             next_state, reward, done, info = env.step(action)
+             agent.observe(state, action, reward, next_state, done)
+             loss = agent.learn()
+             if loss is not None:
+                 losses.append(loss)
+-            state        = next_state
+-            mask         = info.get("action_mask", mask)
++            state = next_state
++            mask = info.get("action_mask", mask)
+             total_steps += 1
+             if total_steps % config.target_update_interval == 0:
+                 agent.hard_update_target()
+ 
+-        ep_info = info.get("episode", {})
++        episode = info.get("episode", {})
+         row = {
+-            "episode":             float(ep + 1),
+-            "epsilon":             float(agent.epsilon),
+-            "reward":              float(ep_info.get("reward", 0)),
+-            "steps":               float(ep_info.get("steps", 0)),
+-            "success":             float(ep_info.get("success", False)),
+-            "risk_exposure":       float(ep_info.get("risk_exposure", 0)),
+-            "redundant_actions":   float(ep_info.get("redundant_actions", 0)),
+-            "escalation_attempts": float(ep_info.get("escalation_attempts", 0)),
+-            "mean_loss":           float(np.mean(losses)) if losses else 0.0,
++            "episode": float(episode_index + 1),
++            "epsilon": float(agent.epsilon),
++            "reward": float(episode.get("reward", 0.0)),
++            "steps": float(episode.get("steps", 0.0)),
++            "success": float(episode.get("success", False)),
++            "risk_exposure": float(episode.get("risk_exposure", 0.0)),
++            "redundant_actions": float(episode.get("redundant_actions", 0.0)),
++            "escalation_attempts": float(episode.get("escalation_attempts", 0.0)),
++            "mean_loss": float(np.mean(losses)) if losses else 0.0,
+         }
+         history.append(row)
+ 
+-        if (ep + 1) % log_interval == 0:
+-            w = log_interval
+-            succ = _rolling_mean(history, "success", w)
+-            rew  = _rolling_mean(history, "reward", w)
+-            stp  = _rolling_mean(history, "steps", w)
+-            lss  = _rolling_mean(history, "mean_loss", w)
+-            rsk  = _rolling_mean(history, "risk_exposure", w)
+-            red  = _rolling_mean(history, "redundant_actions", w)
+-
+-            log_line = (
+-                f"[train] ep={ep+1:>6d} "
++        if (episode_index + 1) % log_interval == 0:
++            window = log_interval
++            rolling_success = _rolling_mean(history, "success", window)
++            rolling_reward = _rolling_mean(history, "reward", window)
++            rolling_steps = _rolling_mean(history, "steps", window)
++            rolling_loss = _rolling_mean(history, "mean_loss", window)
++            rolling_risk = _rolling_mean(history, "risk_exposure", window)
++            rolling_redundant = _rolling_mean(history, "redundant_actions", window)
++
++            print(
++                f"[train] ep={episode_index+1:>6d} "
+                 f"eps={agent.epsilon:.3f} "
+-                f"success={succ:.3f} "
+-                f"steps={stp:.2f} "
+-                f"reward={rew:.3f}"
++                f"success={rolling_success:.3f} "
++                f"steps={rolling_steps:.2f} "
++                f"reward={rolling_reward:.3f}"
+             )
+-            print(log_line)
+-
+-            # Structured row for the log file
+             interval_logs.append(
+-                f"{ep+1:>8d}  {agent.epsilon:>8.3f}  {succ:>8.4f}  {rew:>8.3f}  {stp:>8.2f}  {lss:>10.4f}  {rsk:>8.4f}  {red:>10.2f}"
++                f"{episode_index+1:>8d}  "
++                f"{agent.epsilon:>8.3f}  "
++                f"{rolling_success:>8.4f}  "
++                f"{rolling_reward:>8.3f}  "
++                f"{rolling_steps:>8.2f}  "
++                f"{rolling_loss:>10.4f}  "
++                f"{rolling_risk:>8.4f}  "
++                f"{rolling_redundant:>10.2f}"
+             )
+ 
+-    elapsed = time.time() - t_start
++        if validation_enabled and (episode_index + 1) % validation_interval == 0:
++            metrics = evaluate_validation(
++                agent,
++                episodes=validation_episodes,
++                seed=validation_seed,
++                max_steps=max_steps,
++            )
++            metrics["episode"] = float(episode_index + 1)
++            validation_history.append(metrics)
++            print(
++                "[train] validation "
++                f"ep={episode_index+1:>6d} "
++                f"success={metrics['success_rate']:.3f} "
++                f"steps={metrics['avg_steps']:.2f} "
++                f"risk={metrics['avg_risk_exposure']:.3f}"
++            )
++            candidate = {key: value for key, value in metrics.items() if key != "episode"}
++            if _is_better_validation(candidate, best_validation):
++                best_validation = candidate
++                best_validation_episode = episode_index + 1
++                agent.save(best_model_path)
++                print(f"[train] saved new best checkpoint -> {best_model_path}")
++
++    elapsed = time.time() - start_time
+ 
+-    # ΓöÇΓöÇ Save core artifacts
+     agent.save(model_path)
+     _save_csv(history_path, history)
+ 
++    artifacts_dir = os.path.dirname(model_path) or "artifacts"
++    validation_history_path = os.path.join(artifacts_dir, "validation_history.csv")
++    if validation_history:
++        _save_csv(validation_history_path, validation_history)
++    elif os.path.exists(validation_history_path):
++        os.remove(validation_history_path)
++
++    if not validation_enabled:
++        best_model_path = model_path
++    elif best_validation is None:
++        agent.save(best_model_path)
++        best_validation = evaluate_validation(
++            agent,
++            episodes=validation_episodes,
++            seed=validation_seed,
++            max_steps=max_steps,
++        )
++        best_validation_episode = episodes
++
+     summary: Dict[str, float] = {
+-        "episodes":         float(episodes),
+-        "final_epsilon":    float(agent.epsilon),
+-        "mean_success":     _rolling_mean(history, "success", episodes),
+-        "mean_steps":       _rolling_mean(history, "steps", episodes),
+-        "mean_reward":      _rolling_mean(history, "reward", episodes),
+-        "mean_risk":        _rolling_mean(history, "risk_exposure", episodes),
++        "episodes": float(episodes),
++        "final_epsilon": float(agent.epsilon),
++        "mean_success": _rolling_mean(history, "success", episodes),
++        "mean_steps": _rolling_mean(history, "steps", episodes),
++        "mean_reward": _rolling_mean(history, "reward", episodes),
++        "mean_risk": _rolling_mean(history, "risk_exposure", episodes),
+     }
+-
+-    # ΓöÇΓöÇ Write detailed training log
+-    artifacts_dir = os.path.dirname(model_path) or "artifacts"
+-    log_path   = os.path.join(artifacts_dir, "training_log.txt")
++    if best_validation is not None:
++        summary.update({
++            "best_validation_success": best_validation["success_rate"],
++            "best_validation_steps": best_validation["avg_steps"],
++            "best_validation_reward": best_validation["avg_reward"],
++            "best_validation_risk": best_validation["avg_risk_exposure"],
++        })
++    if best_validation_episode is not None:
++        summary["best_validation_episode"] = float(best_validation_episode)
++
++    log_path = os.path.join(artifacts_dir, "training_log.txt")
+     curve_path = os.path.join(artifacts_dir, "training_curve.png")
+-
+     _write_training_log(
+         log_path=log_path,
+         config=config,
+@@ -350,24 +522,31 @@ def train(
+         elapsed_sec=elapsed,
+         model_path=model_path,
+         history_path=history_path,
++        validation_history=validation_history,
++        best_validation=best_validation,
++        best_validation_episode=best_validation_episode,
++        best_model_path=best_model_path,
++        validation_history_path=validation_history_path if validation_history else None,
+     )
+-    print(f"[train] saved training log  ΓåÆ {log_path}")
++    print(f"[train] saved training log -> {log_path}")
+ 
+-    # ΓöÇΓöÇ Plot training curves
+     _plot_training_curves(history, curve_path)
+-
+     return agent, summary
+ 
+ 
+ def _cli() -> None:
+     parser = argparse.ArgumentParser(description="Train DQN agent on privilege escalation MDP.")
+-    parser.add_argument("--episodes",     type=int, default=10_000)
+-    parser.add_argument("--seed",         type=int, default=42)
+-    parser.add_argument("--max-steps",    type=int, default=20)
+-    parser.add_argument("--model-path",   type=str, default="artifacts/dqn_model.pt")
++    parser.add_argument("--episodes", type=int, default=10_000)
++    parser.add_argument("--seed", type=int, default=42)
++    parser.add_argument("--max-steps", type=int, default=20)
++    parser.add_argument("--model-path", type=str, default="artifacts/dqn_model.pt")
+     parser.add_argument("--history-path", type=str, default="artifacts/dqn_training_history.csv")
+     parser.add_argument("--log-interval", type=int, default=500)
+-    parser.add_argument("--device",       type=str, default=None)
++    parser.add_argument("--validation-episodes", type=int, default=200)
++    parser.add_argument("--validation-interval", type=int, default=500)
++    parser.add_argument("--validation-seed", type=int, default=None)
++    parser.add_argument("--best-model-path", type=str, default=None)
++    parser.add_argument("--device", type=str, default=None)
+     args = parser.parse_args()
+ 
+     _, summary = train(
+@@ -377,13 +556,16 @@ def _cli() -> None:
+         model_path=args.model_path,
+         history_path=args.history_path,
+         log_interval=args.log_interval,
++        validation_episodes=args.validation_episodes,
++        validation_interval=args.validation_interval,
++        validation_seed=args.validation_seed,
++        best_model_path=args.best_model_path,
+         device=args.device,
+     )
+     print("[train] complete")
+-    for k, v in summary.items():
+-        print(f"  {k}: {v}")
++    for key, value in summary.items():
++        print(f"  {key}: {value}")
+ 
+ 
+ if __name__ == "__main__":
+     _cli()
+-
+diff --git a/postex_agent/sessions/base_session.py b/postex_agent/sessions/base_session.py
+index a3c57f1..3c1cd0e 100644
+--- a/postex_agent/sessions/base_session.py
++++ b/postex_agent/sessions/base_session.py
+@@ -21,6 +21,13 @@ class BaseSession(ABC):
+         """Execute a shell command and return structured output."""
+         ...
+ 
++    def metadata(self) -> dict:
++        """Return session capabilities for logging and runtime decisions."""
++        return {
++            "session_type": self.__class__.__name__,
++            "persistent_context": False,
++        }
++
+     @abstractmethod
+     def close(self) -> None:
+         """Release underlying resources."""
+diff --git a/postex_agent/sessions/manual_shell.py b/postex_agent/sessions/manual_shell.py
+index e3dd924..1129103 100644
+--- a/postex_agent/sessions/manual_shell.py
++++ b/postex_agent/sessions/manual_shell.py
+@@ -1,34 +1,143 @@
+ """
+ Manual shell session adapter.
+ 
+-Executes commands via subprocess on the local machine.
+-
+-Use this when:
+-  - The agent is running directly on the target (e.g. uploaded via web shell)
+-  - You are doing local testing
+-
+-For remote targets use SSHSession or MetasploitSession instead.
++On POSIX targets this adapter keeps a persistent shell process alive so command
++state such as cwd and exported environment variables survives between calls.
++On Windows it falls back to one-command-per-process execution, which is still
++useful for local testing in this repository.
+ """
+ from __future__ import annotations
+ 
+ import os
++import select
+ import subprocess
++import threading
++import time
++import uuid
++from typing import Optional
+ 
+ from postex_agent.sessions.base_session import BaseSession
+ 
+ 
+ class ManualShellSession(BaseSession):
+-    """
+-    Runs each command in a fresh subprocess shell.
+-    Returns structured dict matching the BaseSession contract.
+-    """
++    """Run commands against a local shell for testing or on-target execution."""
+ 
+-    def __init__(self, shell: str | None = None):
++    def __init__(self, shell: Optional[str] = None, persistent: Optional[bool] = None):
+         if shell is None:
+             shell = "powershell" if os.name == "nt" else "/bin/sh"
+         self.shell = shell
++        self._persistent_requested = persistent if persistent is not None else (os.name != "nt")
++        self._persistent_supported = self._persistent_requested and (os.name != "nt")
++        self._process: Optional[subprocess.Popen[str]] = None
++        self._io_lock = threading.Lock()
+ 
+-    def run(self, command: str, timeout: int = 30) -> dict:
++    def metadata(self) -> dict:
++        return {
++            "session_type": self.__class__.__name__,
++            "persistent_context": self._persistent_supported,
++            "shell": self.shell,
++        }
++
++    def _ensure_process(self) -> subprocess.Popen[str]:
++        if self._process is not None and self._process.poll() is None:
++            return self._process
++
++        self._process = subprocess.Popen(
++            [self.shell],
++            stdin=subprocess.PIPE,
++            stdout=subprocess.PIPE,
++            stderr=subprocess.STDOUT,
++            text=True,
++            bufsize=1,
++        )
++        return self._process
++
++    def _reset_process(self) -> None:
++        if self._process is None:
++            return
++        try:
++            if self._process.stdin:
++                self._process.stdin.close()
++        except OSError:
++            pass
++        try:
++            self._process.terminate()
++            self._process.wait(timeout=1)
++        except Exception:
++            try:
++                self._process.kill()
++            except Exception:
++                pass
++        self._process = None
++
++    def _run_persistent_posix(self, command: str, timeout: int) -> dict:
++        proc = self._ensure_process()
++        assert proc.stdin is not None
++        assert proc.stdout is not None
++
++        sentinel = f"__CODEX_SESSION_{uuid.uuid4().hex}__"
++        wrapped = (
++            f"{command}\n"
++            "status=$?\n"
++            f"printf '{sentinel}:%s\\n' \"$status\"\n"
++        )
++
++        with self._io_lock:
++            try:
++                proc.stdin.write(wrapped)
++                proc.stdin.flush()
++            except Exception as exc:
++                self._reset_process()
++                return {
++                    "output": "",
++                    "error": f"Failed to write to persistent shell: {exc}",
++                    "exit_code": 1,
++                }
++
++            output_lines = []
++            deadline = time.time() + timeout
++
++            while True:
++                remaining = deadline - time.time()
++                if remaining <= 0:
++                    self._reset_process()
++                    return {
++                        "output": "".join(output_lines),
++                        "error": f"Command timed out after {timeout}s",
++                        "exit_code": 124,
++                    }
++
++                ready, _, _ = select.select([proc.stdout], [], [], remaining)
++                if not ready:
++                    continue
++
++                line = proc.stdout.readline()
++                if line == "":
++                    if proc.poll() is None:
++                        continue
++                    self._reset_process()
++                    return {
++                        "output": "".join(output_lines),
++                        "error": "Persistent shell exited unexpectedly.",
++                        "exit_code": 1,
++                    }
++
++                stripped = line.rstrip("\r\n")
++                if stripped.startswith(f"{sentinel}:"):
++                    exit_text = stripped.split(":", 1)[1].strip()
++                    try:
++                        exit_code = int(exit_text)
++                    except ValueError:
++                        exit_code = 1
++                    return {
++                        "output": "".join(output_lines),
++                        "error": "",
++                        "exit_code": exit_code,
++                    }
++
++                output_lines.append(line)
++
++    def _run_stateless(self, command: str, timeout: int) -> dict:
+         try:
+             completed = subprocess.run(
+                 command,
+@@ -39,22 +148,27 @@ class ManualShellSession(BaseSession):
+                 executable=self.shell if os.name != "nt" else None,
+             )
+             return {
+-                "output":    completed.stdout or "",
+-                "error":     completed.stderr or "",
++                "output": completed.stdout or "",
++                "error": completed.stderr or "",
+                 "exit_code": int(completed.returncode),
+             }
+         except subprocess.TimeoutExpired:
+             return {
+-                "output":    "",
+-                "error":     f"Command timed out after {timeout}s",
++                "output": "",
++                "error": f"Command timed out after {timeout}s",
+                 "exit_code": 124,
+             }
+         except Exception as exc:
+             return {
+-                "output":    "",
+-                "error":     str(exc),
++                "output": "",
++                "error": str(exc),
+                 "exit_code": 1,
+             }
+ 
++    def run(self, command: str, timeout: int = 30) -> dict:
++        if self._persistent_supported:
++            return self._run_persistent_posix(command, timeout=timeout)
++        return self._run_stateless(command, timeout=timeout)
++
+     def close(self) -> None:
+-        pass
++        self._reset_process()
+diff --git a/postex_agent/sessions/metasploit_session.py b/postex_agent/sessions/metasploit_session.py
+index 969f0c0..777d306 100644
+--- a/postex_agent/sessions/metasploit_session.py
++++ b/postex_agent/sessions/metasploit_session.py
+@@ -6,22 +6,105 @@ SSHSession requires:         pip install paramiko
+ """
+ from __future__ import annotations
+ 
++import uuid
++from typing import Any, Callable, Optional
++
+ from postex_agent.sessions.base_session import BaseSession
+ 
+ 
++def _build_msf_wrapped_command(command: str) -> tuple[str, str, str]:
++    """Wrap a shell command so msfrpc output includes an exit code and terminator."""
++    token = uuid.uuid4().hex
++    status_token = f"__CODEX_MSF_STATUS_{token}__"
++    done_token = f"__CODEX_MSF_DONE_{token}__"
++    wrapped = (
++        f"{command}\n"
++        "status=$?\n"
++        f"printf '{status_token}:%s\\n' \"$status\"\n"
++        f"printf '{done_token}\\n'\n"
++    )
++    return wrapped, status_token, done_token
++
++
++def _parse_msf_wrapped_output(raw_output: str, status_token: str, done_token: str) -> dict:
++    """Strip wrapper markers from msfrpc output and recover the shell exit code."""
++    normalized = (raw_output or "").replace("\r\n", "\n").replace("\r", "\n")
++    lines = normalized.split("\n")
++
++    clean_lines = []
++    exit_code: Optional[int] = None
++    saw_done = False
++
++    for line in lines:
++        if line.startswith(f"{status_token}:"):
++            exit_text = line.split(":", 1)[1].strip()
++            try:
++                exit_code = int(exit_text)
++            except ValueError:
++                exit_code = 1
++            continue
++        if line.strip().startswith(done_token):
++            saw_done = True
++            continue
++        clean_lines.append(line)
++
++    output = "\n".join(clean_lines).rstrip("\n")
++    if not saw_done:
++        return {
++            "output": output,
++            "error": "Metasploit session output was incomplete; completion sentinel not found.",
++            "exit_code": 1,
++        }
++    return {
++        "output": output,
++        "error": "",
++        "exit_code": int(exit_code if exit_code is not None else 0),
++    }
++
++
+ class MetasploitSession(BaseSession):
+     """
+     Executes commands through an active Metasploit session via msfrpc.
++
++    Commands are wrapped with explicit completion and exit-code markers so the
++    caller gets more reliable output than a simple newline-terminated read.
+     """
+ 
+     def __init__(
+         self,
+         session_id: int,
+-        host:       str = "127.0.0.1",
+-        port:       int = 55553,
+-        password:   str = "msf",
+-        ssl:        bool = False,
++        host: str = "127.0.0.1",
++        port: int = 55553,
++        password: str = "msf",
++        ssl: bool = False,
++        client_factory: Optional[Callable[..., Any]] = None,
++        session: Any = None,
++        reconnect_attempts: int = 1,
+     ):
++        self.session_id = int(session_id)
++        self.host = host
++        self.port = int(port)
++        self.password = password
++        self.ssl = bool(ssl)
++        self._client_factory = client_factory
++        self._client = None
++        self._session = None
++        self._reconnect_attempts = max(int(reconnect_attempts), 0)
++
++        if session is not None:
++            self._session = session
++        else:
++            self._connect()
++
++    def _make_client(self) -> Any:
++        if self._client_factory is not None:
++            return self._client_factory(
++                password=self.password,
++                server=self.host,
++                port=self.port,
++                ssl=self.ssl,
++            )
++
+         try:
+             from pymetasploit3.msfrpc import MsfRpcClient  # type: ignore
+         except ImportError as exc:
+@@ -30,36 +113,74 @@ class MetasploitSession(BaseSession):
+                 "Install with: pip install pymetasploit3"
+             ) from exc
+ 
+-        self._client  = MsfRpcClient(password=password, server=host, port=port, ssl=ssl)
+-        self._session = self._client.sessions.session(str(session_id))
++        return MsfRpcClient(
++            password=self.password,
++            server=self.host,
++            port=self.port,
++            ssl=self.ssl,
++        )
++
++    def _connect(self) -> None:
++        self._client = self._make_client()
++        self._session = self._client.sessions.session(str(self.session_id))
++
++    def _reset_connection(self) -> None:
++        self._session = None
++        self._client = None
++
++    def _ensure_session(self) -> None:
++        if self._session is None:
++            self._connect()
++
++    def _run_once(self, command: str, timeout: int) -> dict:
++        self._ensure_session()
++        wrapped, status_token, done_token = _build_msf_wrapped_command(command)
++        raw_output = self._session.run_with_output(
++            wrapped,
++            terminating_strs=[done_token],
++            timeout=timeout,
++        )
++        return _parse_msf_wrapped_output(raw_output or "", status_token, done_token)
+ 
+     def run(self, command: str, timeout: int = 30) -> dict:
+-        try:
+-            output = self._session.run_with_output(
+-                command, terminating_strs=["\n"], timeout=timeout,
+-            )
+-            return {"output": output or "", "error": "", "exit_code": 0}
+-        except Exception as exc:
+-            return {"output": "", "error": str(exc), "exit_code": 1}
++        last_error: Optional[Exception] = None
++
++        for attempt in range(self._reconnect_attempts + 1):
++            try:
++                return self._run_once(command, timeout=timeout)
++            except Exception as exc:
++                last_error = exc
++                self._reset_connection()
++                if attempt >= self._reconnect_attempts:
++                    break
++
++        return {"output": "", "error": str(last_error) if last_error else "Unknown error", "exit_code": 1}
++
++    def metadata(self) -> dict:
++        return {
++            "session_type": self.__class__.__name__,
++            "persistent_context": True,
++            "host": self.host,
++            "port": self.port,
++            "session_id": self.session_id,
++            "ssl": self.ssl,
++        }
+ 
+     def close(self) -> None:
+-        self._session = None
+-        self._client  = None
++        self._reset_connection()
+ 
+ 
+ class SSHSession(BaseSession):
+-    """
+-    SSH session adapter using paramiko.
+-    """
++    """SSH session adapter using paramiko."""
+ 
+     def __init__(
+         self,
+-        host:      str,
+-        username:  str,
+-        password:  str | None = None,
+-        key_path:  str | None = None,
+-        port:      int = 22,
+-        timeout:   int = 10,
++        host: str,
++        username: str,
++        password: str | None = None,
++        key_path: str | None = None,
++        port: int = 22,
++        timeout: int = 10,
+     ):
+         try:
+             import paramiko  # type: ignore
+@@ -69,11 +190,17 @@ class SSHSession(BaseSession):
+                 "Install with: pip install paramiko"
+             ) from exc
+ 
++        self.host = host
++        self.username = username
++        self.port = int(port)
++
+         self._client = paramiko.SSHClient()
+         self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+-        connect_kwargs: dict = {
+-            "hostname": host, "username": username,
+-            "port": port, "timeout": timeout,
++        connect_kwargs: dict[str, Any] = {
++            "hostname": host,
++            "username": username,
++            "port": port,
++            "timeout": timeout,
+         }
+         if key_path:
+             connect_kwargs["key_filename"] = key_path
+@@ -84,13 +211,22 @@ class SSHSession(BaseSession):
+     def run(self, command: str, timeout: int = 30) -> dict:
+         try:
+             _, stdout, stderr = self._client.exec_command(command, timeout=timeout)
+-            out       = stdout.read().decode(errors="replace")
+-            err       = stderr.read().decode(errors="replace")
++            output = stdout.read().decode(errors="replace")
++            error = stderr.read().decode(errors="replace")
+             exit_code = stdout.channel.recv_exit_status()
+-            return {"output": out, "error": err, "exit_code": int(exit_code)}
++            return {"output": output, "error": error, "exit_code": int(exit_code)}
+         except Exception as exc:
+             return {"output": "", "error": str(exc), "exit_code": 1}
+ 
++    def metadata(self) -> dict:
++        return {
++            "session_type": self.__class__.__name__,
++            "persistent_context": False,
++            "host": self.host,
++            "port": self.port,
++            "username": self.username,
++        }
++
+     def close(self) -> None:
+         if self._client:
+             self._client.close()
+diff --git a/tests/smoke_test_35dim.py b/tests/smoke_test_35dim.py
+index 4ee56bf..3adaf53 100644
+--- a/tests/smoke_test_35dim.py
++++ b/tests/smoke_test_35dim.py
+@@ -1,4 +1,9 @@
+ """Smoke test: verify 35-dim state flows correctly through model inference."""
++import os
++import sys
++
++sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
++
+ from postex_agent.core.state import HostState, STATE_DIM
+ from postex_agent.core.actions import compute_action_mask, ACTION_SPACE_SIZE, Action
+ from postex_agent.rl.policy_inference import RLPolicy
+diff --git a/tests/test_integration.py b/tests/test_integration.py
+index f09c896..b467901 100644
+--- a/tests/test_integration.py
++++ b/tests/test_integration.py
+@@ -1,7 +1,7 @@
+ """
+ Integration test suite for postex_agent.
+-Tests core modules, parsers, simulation environment, and baseline policy.
+-No PyTorch required.
++Tests core modules, parsers, simulation environment, baseline policy,
++and lightweight RL training helpers.
+ """
+ from __future__ import annotations
+ 
+@@ -106,6 +106,20 @@ def _():
+     assert not p["vector_found"]
+ 
+ 
++@test("Parser: SudoParser distinguishes passworded entries")
++def _():
++    from postex_agent.parsers.sudo_parser import SudoParser
++
++    raw = """
++User bob may run the following commands on target:
++    (ALL : ALL) NOPASSWD: /usr/bin/find
++    (root) /usr/bin/systemctl restart apache2
++"""
++    parsed = SudoParser().parse(raw)
++    assert any("/usr/bin/find" in entry for entry in parsed["details"]["nopasswd_entries"])
++    assert any("systemctl" in entry for entry in parsed["details"]["passworded_entries"])
++
++
+ @test("Parser: SuidParser finds exploitable bin")
+ def _():
+     from postex_agent.parsers.suid_parser import SuidParser
+@@ -201,6 +215,31 @@ def _():
+     assert p["details"]["uid"] == 0
+ 
+ 
++@test("Parser: UserParser extracts privileged groups")
++def _():
++    from postex_agent.parsers.identity_parser import UserParser
++
++    raw = "uid=1001(alice) gid=1001(alice) groups=1001(alice),27(sudo),998(docker)"
++    parsed = UserParser().parse(raw)
++    assert "alice" in parsed["details"]["groups"]
++    assert "sudo" in parsed["details"]["privileged_groups"]
++    assert "docker" in parsed["details"]["privileged_groups"]
++
++
++@test("Parser: OSParser detects container indicators")
++def _():
++    from postex_agent.parsers.identity_parser import OSParser
++
++    raw = (
++        'PRETTY_NAME="Ubuntu 22.04.1 LTS"\n'
++        "12:devices:/docker/abc123\n"
++        "container:docker\n"
++    )
++    parsed = OSParser().parse(raw)
++    assert parsed["details"]["is_containerized"]
++    assert "docker" in parsed["details"]["container_indicators"]
++
++
+ # ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
+ # Command library & safety
+ # ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
+@@ -225,6 +264,193 @@ def _():
+     assert is_safe_command("sudo -l")
+ 
+ 
++@test("ManualShellSession: executes local command and reports metadata")
++def _():
++    from postex_agent.sessions.manual_shell import ManualShellSession
++
++    session = ManualShellSession()
++    result = session.run("echo codex_session_test")
++    meta = session.metadata()
++    session.close()
++
++    assert result["exit_code"] == 0
++    assert "codex_session_test" in result["output"].lower()
++    assert meta["session_type"] == "ManualShellSession"
++
++
++@test("ManualShellSession: POSIX mode preserves shell state")
++def _():
++    if os.name == "nt":
++        return
++
++    from postex_agent.sessions.manual_shell import ManualShellSession
++
++    session = ManualShellSession(shell="/bin/sh", persistent=True)
++    try:
++        session.run("export CODEX_PERSIST_TEST=kept")
++        result = session.run("printf '%s' \"$CODEX_PERSIST_TEST\"")
++        assert result["output"] == "kept"
++        assert session.metadata()["persistent_context"]
++    finally:
++        session.close()
++
++
++@test("CommandExecutor: includes session metadata in execution record")
++def _():
++    from postex_agent.execution.command_executor import CommandExecutor
++    from postex_agent.sessions.base_session import BaseSession
++
++    class DummySession(BaseSession):
++        def run(self, command: str, timeout: int = 30) -> dict:
++            return {"output": "ok", "error": "", "exit_code": 0}
++
++        def metadata(self) -> dict:
++            return {"session_type": "DummySession", "persistent_context": True}
++
++        def close(self) -> None:
++            pass
++
++    executor = CommandExecutor(session=DummySession(), log_path="artifacts/test_execution.jsonl")
++    entry = executor.execute("echo ok", action_name="TEST")
++    assert entry["session_type"] == "DummySession"
++    assert entry["persistent_context"] is True
++
++
++@test("LiveExecutionController: shared runtime updates state and step info")
++def _():
++    from postex_agent.core.actions import Action
++    from postex_agent.execution.live_runtime import LiveExecutionController
++    from postex_agent.sessions.base_session import BaseSession
++
++    class DummySession(BaseSession):
++        def run(self, command: str, timeout: int = 30) -> dict:
++            if command == "sudo -l 2>/dev/null":
++                return {
++                    "output": "(ALL : ALL) NOPASSWD: /usr/bin/find\n",
++                    "error": "",
++                    "exit_code": 0,
++                }
++            return {"output": "", "error": "", "exit_code": 0}
++
++        def metadata(self) -> dict:
++            return {"session_type": "DummySession", "persistent_context": True}
++
++        def close(self) -> None:
++            pass
++
++    controller = LiveExecutionController(
++        session=DummySession(),
++        max_steps=5,
++        log_path="artifacts/test_live_runtime.jsonl",
++    )
++    _, reward, done, info = controller.step(Action.CHECK_SUDO)
++
++    assert reward == 0.0
++    assert not done
++    assert controller.current_state.checked["sudo"]
++    assert controller.current_state.found["sudo"]
++    assert info["action"] == "CHECK_SUDO"
++    assert info["parsed"]["vector_found"]
++
++
++@test("RealEnv: delegates to shared live runtime")
++def _():
++    from postex_agent.core.actions import Action
++    from postex_agent.environment.real_env import RealEnv
++    from postex_agent.sessions.base_session import BaseSession
++
++    class DummySession(BaseSession):
++        def run(self, command: str, timeout: int = 30) -> dict:
++            if command == "sudo -l 2>/dev/null":
++                return {
++                    "output": "(ALL : ALL) NOPASSWD: /usr/bin/find\n",
++                    "error": "",
++                    "exit_code": 0,
++                }
++            return {"output": "", "error": "", "exit_code": 0}
++
++        def close(self) -> None:
++            pass
++
++    env = RealEnv(session=DummySession(), max_steps=5, log_path="artifacts/test_real_env.jsonl")
++    env.reset()
++    _, reward, done, info = env.step(Action.CHECK_SUDO)
++
++    assert reward == 0.0
++    assert not done
++    assert env.current_state.checked["sudo"]
++    assert env.current_state.found["sudo"]
++    assert info["action"] == "CHECK_SUDO"
++
++
++@test("MetasploitSession: wrapped output parsing recovers exit code")
++def _():
++    from postex_agent.sessions.metasploit_session import _parse_msf_wrapped_output
++
++    parsed = _parse_msf_wrapped_output(
++        "uid=0(root)\n__CODEX_MSF_STATUS_token__:0\n__CODEX_MSF_DONE_token__\n",
++        "__CODEX_MSF_STATUS_token__",
++        "__CODEX_MSF_DONE_token__",
++    )
++    assert parsed["exit_code"] == 0
++    assert parsed["error"] == ""
++    assert parsed["output"] == "uid=0(root)"
++
++
++@test("MetasploitSession: retries after reconnectable failure")
++def _():
++    from postex_agent.sessions.metasploit_session import MetasploitSession
++
++    class FakeSession:
++        def __init__(self, responses):
++            self._responses = list(responses)
++
++        def run_with_output(self, command, terminating_strs=None, timeout=30):
++            item = self._responses.pop(0)
++            if isinstance(item, Exception):
++                raise item
++            status_token = None
++            done_token = None
++            for line in command.splitlines():
++                if "__CODEX_MSF_STATUS_" in line:
++                    status_token = line.split("'")[1].split(":")[0]
++                if "__CODEX_MSF_DONE_" in line:
++                    done_token = line.split("'")[1]
++            assert status_token is not None
++            assert done_token is not None
++            return f"{item}\n{status_token}:0\n{done_token}\n"
++
++    class FakeSessions:
++        def __init__(self, responses):
++            self._responses = responses
++
++        def session(self, session_id):
++            return FakeSession(self._responses.pop(0))
++
++    class FakeClient:
++        def __init__(self, responses):
++            self.sessions = FakeSessions(responses)
++
++    response_sets = [
++        [RuntimeError("temporary msfrpc failure")],
++        ["hello"],
++    ]
++
++    def factory(**kwargs):
++        return FakeClient(response_sets)
++
++    msf = MetasploitSession(
++        session_id=1,
++        client_factory=factory,
++        reconnect_attempts=1,
++    )
++    result = msf.run("echo hello")
++    msf.close()
++
++    assert result["exit_code"] == 0
++    assert result["output"] == "hello"
++
++
+ # ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
+ # Parser registry
+ # ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
+@@ -282,6 +508,70 @@ def _():
+     assert state.os_info == "Ubuntu 20.04"
+ 
+ 
++@test("StateBuilder: stores deployment-faithful metadata")
++def _():
++    from postex_agent.core.actions import Action
++    from postex_agent.core.state import HostState
++    from postex_agent.environment.state_builder import update_state
++
++    state = HostState()
++
++    update_state(
++        state,
++        Action.IDENTIFY_USER,
++        {
++            "details": {
++                "username": "alice",
++                "groups": ["alice", "sudo", "docker"],
++                "privileged_groups": ["sudo", "docker"],
++                "is_root": False,
++            }
++        },
++    )
++    update_state(
++        state,
++        Action.IDENTIFY_OS,
++        {
++            "details": {
++                "kernel_version": "5.15.0-56-generic",
++                "os_name": "Ubuntu 22.04.1 LTS",
++                "container_indicators": ["docker"],
++                "is_containerized": True,
++            }
++        },
++    )
++    update_state(
++        state,
++        Action.CHECK_SUDO,
++        {
++            "vector_found": True,
++            "details": {
++                "sudo_commands": ["NOPASSWD: /usr/bin/find", "/usr/bin/systemctl restart apache2"],
++                "nopasswd_entries": ["/usr/bin/find"],
++                "passworded_entries": ["/usr/bin/systemctl restart apache2"],
++            },
++        },
++    )
++    update_state(
++        state,
++        Action.CHECK_CRON,
++        {
++            "vector_found": True,
++            "details": {
++                "cron_jobs": ["*/5 * * * * root /opt/scripts/cleanup.sh"],
++                "writable_targets": ["/opt/scripts/cleanup.sh"],
++            },
++        },
++    )
++
++    assert state.current_user == "alice"
++    assert "sudo" in state.privileged_groups
++    assert state.is_containerized
++    assert "/usr/bin/find" in state.sudo_nopasswd_entries
++    assert any("systemctl" in entry for entry in state.sudo_password_entries)
++    assert "/opt/scripts/cleanup.sh" in state.cron_writable_targets
++
++
+ # ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
+ # Simulation environment
+ # ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
+@@ -437,6 +727,169 @@ def _():
+ # Summary
+ # ├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼├óΓÇ¥Γé¼
+ 
++@test("Actions: kernel retry budget respected")
++def _():
++    from postex_agent.core.actions import Action, compute_action_mask
++    from postex_agent.core.state import HostState
++
++    state = HostState()
++    state.found["kernel"] = True
++    mask = compute_action_mask(state.to_vector())
++    assert mask[int(Action.EXPLOIT_KERNEL)]
++
++    state.exploit_failures["kernel"] = 2
++    mask = compute_action_mask(state.to_vector())
++    assert mask[int(Action.EXPLOIT_KERNEL)]
++
++    state.exploit_failures["kernel"] = 3
++    mask = compute_action_mask(state.to_vector())
++    assert not mask[int(Action.EXPLOIT_KERNEL)]
++
++    state = HostState()
++    state.found["sudo"] = True
++    state.exploit_failures["sudo"] = 1
++    mask = compute_action_mask(state.to_vector())
++    assert not mask[int(Action.EXPLOIT_SUDO)]
++
++
++@test("SimulationEnv: reset can force archetype")
++def _():
++    from postex_agent.environment.simulation_env import SimulationEnv
++    from postex_agent.core.actions import Action
++
++    env = SimulationEnv(seed=5)
++    env.reset(archetype_name="containerized_app")
++    assert env.host is not None
++    assert env.host.archetype == "containerized_app"
++
++    _, _, done, info = env.step(int(Action.STOP))
++    assert done
++    assert info["episode"]["archetype"] == "containerized_app"
++
++
++@test("SimulationEnv: correct stop on host with no actionable paths")
++def _():
++    from postex_agent.environment.simulation_env import SimulationEnv
++    from postex_agent.core.actions import Action
++
++    env = SimulationEnv(seed=11)
++    env.reset(archetype_name="hardened_host")
++    assert env.host is not None
++    for vector in env.host.vectors:
++        env.host.vectors[vector] = False
++        env.host.item_counts[vector] = 0
++
++    _, reward, done, info = env.step(int(Action.STOP))
++    assert done
++    assert reward > 0
++    assert info["episode"]["stop_episode"]
++    assert info["episode"]["stop_correct"]
++    assert not info["episode"]["had_actionable_path"]
++
++
++@test("SimulationEnv: delaying found sudo incurs opportunity-cost penalty")
++def _():
++    from postex_agent.environment.simulation_env import SimulationEnv
++    from postex_agent.core.actions import Action
++
++    env = SimulationEnv(seed=3)
++    env.reset()
++    env.state.found["sudo"] = True
++
++    _, reward, _, info = env.step(int(Action.IDENTIFY_OS))
++    assert info["delayed_high_confidence_exploit"]
++    assert reward < 0
++
++
++@test("BaselinePolicy: checks writable paths before cron exploit")
++def _():
++    from postex_agent.rl.baseline_policy import BaselinePolicy
++    from postex_agent.core.actions import Action
++    from postex_agent.core.state import HostState
++
++    policy = BaselinePolicy()
++    state = HostState()
++    state.os_identified = True
++    state.user_identified = True
++    state.checked["cron"] = True
++    state.found["cron"] = True
++
++    action = Action(policy.select_action(state.to_vector()))
++    assert action == Action.CHECK_WRITABLE
++
++    state.checked["writable_path"] = True
++    state.found["writable_path"] = True
++    action = Action(policy.select_action(state.to_vector()))
++    assert action == Action.EXPLOIT_CRON
++
++
++@test("Evaluate: per-archetype summary returned")
++def _():
++    from postex_agent.rl.baseline_policy import BaselinePolicy
++    from postex_agent.rl.evaluate_dqn import evaluate_across_seeds
++
++    policy = BaselinePolicy()
++    report = evaluate_across_seeds(
++        factory=lambda: policy.select_action,
++        seeds=[7],
++        episodes_per_seed=25,
++        max_steps=20,
++    )
++
++    assert "per_archetype" in report
++    assert isinstance(report["per_archetype"], dict)
++    assert len(report["per_archetype"]) >= 1
++
++
++@test("DQNAgent: masked bootstrap ignores invalid next actions")
++def _():
++    import torch
++
++    from postex_agent.core.actions import ACTION_SPACE_SIZE, Action
++    from postex_agent.rl.dqn_agent import masked_double_dqn_next_q
++
++    online_q = torch.zeros((1, ACTION_SPACE_SIZE), dtype=torch.float32)
++    target_q = torch.zeros((1, ACTION_SPACE_SIZE), dtype=torch.float32)
++    mask = torch.zeros((1, ACTION_SPACE_SIZE), dtype=torch.bool)
++
++    online_q[0, int(Action.EXPLOIT_SUDO)] = 100.0
++    target_q[0, int(Action.EXPLOIT_SUDO)] = 50.0
++    online_q[0, int(Action.STOP)] = 1.0
++    target_q[0, int(Action.STOP)] = 2.5
++    mask[0, int(Action.STOP)] = True
++
++    next_q = masked_double_dqn_next_q(online_q, target_q, mask)
++    assert abs(float(next_q.item()) - 2.5) < 1e-6
++
++
++@test("TrainDQN: validation ranking prefers success then efficiency")
++def _():
++    from postex_agent.rl.train_dqn import _default_best_model_path, _is_better_validation
++
++    incumbent = {
++        "success_rate": 0.66,
++        "avg_steps": 7.2,
++        "avg_reward": 15.0,
++        "avg_risk_exposure": 0.14,
++    }
++    better_success = {
++        "success_rate": 0.67,
++        "avg_steps": 9.5,
++        "avg_reward": 14.0,
++        "avg_risk_exposure": 0.20,
++    }
++    same_success_better_steps = {
++        "success_rate": 0.66,
++        "avg_steps": 6.8,
++        "avg_reward": 14.5,
++        "avg_risk_exposure": 0.15,
++    }
++
++    assert _is_better_validation(better_success, incumbent)
++    assert _is_better_validation(same_success_better_steps, incumbent)
++    assert _default_best_model_path("artifacts/model.pt").endswith("_best.pt")
++
++
+ def main() -> None:
+     print("\n" + "="*60)
+     passed = sum(1 for _, ok, _ in results if ok)

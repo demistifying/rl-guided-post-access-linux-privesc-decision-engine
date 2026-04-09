@@ -1,0 +1,100 @@
+﻿commit e3b2cb1e3f5f702b735179920f2903dc23d4e058
+Author: demistifying <ruggi2003@gmail.com>
+Date:   Wed Apr 8 14:41:46 2026 +0530
+
+    Complete Track 2: E2E testing, action masking, and failure tracking bug fixes - Evaluated fair baseline
+
+ artifacts/dqn_model_track3.pt             |   Bin 0 -> 50337 bytes
+ artifacts/dqn_training_history_track3.csv | 30001 ++++++++++++++++++++++++++++
+ artifacts/eval_report_track3.json         |   154 +
+ artifacts/eval_report_track3_final.json   |   154 +
+ artifacts/test_results.json               |     6 +-
+ artifacts/training_curve.png              |   Bin 180888 -> 184079 bytes
+ artifacts/training_log.txt                |    35 +-
+ 7 files changed, 30331 insertions(+), 19 deletions(-)
+
+commit 893225d8a24b0e090a7de9f9fbc7900f2d6e7f45
+Author: demistifying <ruggi2003@gmail.com>
+Date:   Wed Apr 8 01:20:56 2026 +0530
+
+    chore: e2e testing milestone - bug fixes for action masking and state building, updated eval reports
+
+ artifacts/git_status.txt | Bin 0 -> 624 bytes
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+
+commit eb1bd80999582f8c9b00cd5dab3396d4ed72131d
+Author: demistifying <ruggi2003@gmail.com>
+Date:   Wed Apr 8 01:17:56 2026 +0530
+
+    feat: complete Track 1 & Track 2 (E2E testing and bug fixes)
+    
+    - Update credential parser to track quality and count.
+    - Fix state builder to record failure correctly when exploit does not yield root.
+    - Implement action masking to block previously failed exploits.
+    - Update baseline policy to respect exploit failures.
+    - Implement MockSession for end-to-end CLI testing.
+    - Add test_e2e_cli.py for comprehensive verification.
+    - Retrain DQN model on modified MDP with proper masking.
+
+ artifacts/dqn_model.pt                    |   Bin 50211 -> 50211 bytes
+ artifacts/dqn_training_history.csv        | 39992 +++++++++++++++++++++-------
+ artifacts/e2e_test_output.txt             |   438 +
+ artifacts/eval_report.json                |   142 +-
+ artifacts/test_results.json               |     2 +-
+ artifacts/training_curve.png              |   Bin 182708 -> 180888 bytes
+ artifacts/training_log.txt                |    49 +-
+ postex_agent/cli/agent_cli.py             |    23 +-
+ postex_agent/core/actions.py              |     7 +-
+ postex_agent/environment/real_env.py      |    33 +-
+ postex_agent/environment/state_builder.py |    78 +-
+ postex_agent/parsers/credential_parser.py |    59 +-
+ postex_agent/rl/baseline_policy.py        |     3 +
+ tests/smoke_test_35dim.py                 |    69 +
+ tests/test_e2e_cli.py                     |   307 +
+ 15 files changed, 31081 insertions(+), 10121 deletions(-)
+
+commit 963fe06188c76d494acc10a51989cedc5cbc5cc5
+Author: demistifying <ruggi2003@gmail.com>
+Date:   Wed Mar 11 01:38:11 2026 +0530
+
+    feat: DQN architecture and state upgrades
+    
+    Implement action masking, PER, 50k buffer, Dueling DQN, and expand state from 17 to 35 dimensions. Update evaluation metrics and artifacts.
+
+ artifacts/dqn_model.pt                     |   Bin 27181 -> 50211 bytes
+ artifacts/dqn_training_history.csv         | 20000 +++++++++++++--------------
+ artifacts/eval_report.json                 |   154 +
+ artifacts/project_flow_summary.md          |   112 +
+ artifacts/test_results.json                |   125 +
+ artifacts/training_curve.png               |   Bin 0 -> 182708 bytes
+ artifacts/training_log.txt                 |    80 +
+ postex_agent/core/actions.py               |    61 +
+ postex_agent/core/state.py                 |    85 +-
+ postex_agent/environment/simulation_env.py |   133 +-
+ postex_agent/rl/dqn_agent.py               |    96 +-
+ postex_agent/rl/dqn_network.py             |    35 +-
+ postex_agent/rl/policy_inference.py        |    16 +-
+ postex_agent/rl/replay_buffer.py           |   164 +
+ postex_agent/rl/train_dqn.py               |   259 +-
+ tests/test_integration.py                  |    41 +-
+ 16 files changed, 11316 insertions(+), 10045 deletions(-)
+
+commit 5a6b9ce88ded9fe1f3caaa1d357f9423ddc179b6
+Author: demistifying <ruggi2003@gmail.com>
+Date:   Mon Mar 9 04:28:59 2026 +0530
+
+    Integrate updated live-agent interfaces and dynamic exploit generation
+
+ evaluate_dqn.py                             |  13 +-
+ main.py                                     |  58 +++--
+ postex_agent/cli/agent_cli.py               | 346 +++++++++++++++-------------
+ postex_agent/environment/command_library.py | 252 ++++++++++++++++++--
+ postex_agent/environment/real_env.py        |  58 +++--
+ postex_agent/execution/command_executor.py  |  89 ++++---
+ postex_agent/parsers/cron_parser.py         |  57 ++++-
+ postex_agent/rl/dqn_agent.py                |  17 +-
+ postex_agent/sessions/base_session.py       |  20 +-
+ postex_agent/sessions/manual_shell.py       |  38 ++-
+ postex_agent/sessions/metasploit_session.py |  86 ++++---
+ train_dqn.py                                |  12 +-
+ 12 files changed, 720 insertions(+), 326 deletions(-)

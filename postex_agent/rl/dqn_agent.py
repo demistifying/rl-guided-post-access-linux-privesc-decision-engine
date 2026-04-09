@@ -17,7 +17,7 @@ import torch
 import torch.nn.functional as F
 from torch.optim import Adam
 
-from postex_agent.core.actions import ACTION_SPACE_SIZE
+from postex_agent.core.actions import ACTION_SPACE_SIZE, Action, compute_action_mask
 from postex_agent.core.state import STATE_DIM
 from postex_agent.rl.dqn_network import DQNNetwork
 from postex_agent.rl.replay_buffer import PrioritizedReplayBuffer
@@ -41,6 +41,38 @@ class DQNConfig:
     per_beta_start:          float = 0.4
     per_beta_end:            float = 1.0
     per_beta_anneal_episodes: int  = 10_000
+
+
+def build_action_mask_batch(state_batch: np.ndarray) -> np.ndarray:
+    """Compute valid-action masks for a batch of state vectors."""
+    if state_batch.ndim != 2 or state_batch.shape[1] != STATE_DIM:
+        raise ValueError(
+            f"Expected state batch with shape (N, {STATE_DIM}), got {state_batch.shape}"
+        )
+
+    masks = np.stack([compute_action_mask(state) for state in state_batch], axis=0)
+    empty_rows = ~masks.any(axis=1)
+    if np.any(empty_rows):
+        masks[empty_rows, int(Action.STOP)] = True
+    return masks.astype(np.bool_, copy=False)
+
+
+def masked_double_dqn_next_q(
+    online_q: torch.Tensor,
+    target_q: torch.Tensor,
+    action_masks: torch.Tensor,
+) -> torch.Tensor:
+    """Return masked Double DQN bootstrap values for a batch."""
+    if online_q.shape != target_q.shape or online_q.shape != action_masks.shape:
+        raise ValueError(
+            "Expected online_q, target_q, and action_masks to share the same shape"
+        )
+
+    invalid_fill = torch.finfo(online_q.dtype).min
+    masked_online = online_q.masked_fill(~action_masks, invalid_fill)
+    next_actions = masked_online.argmax(dim=1, keepdim=True)
+    masked_target = target_q.masked_fill(~action_masks, invalid_fill)
+    return masked_target.gather(1, next_actions).squeeze(1)
 
 
 class DQNAgent:
@@ -174,10 +206,16 @@ class DQNAgent:
         w  = torch.from_numpy(is_weights).to(self.device)
 
         q_vals = self.online_net(s).gather(1, a.unsqueeze(1)).squeeze(1)
+        next_masks = torch.from_numpy(build_action_mask_batch(next_states)).to(self.device)
         with torch.no_grad():
             # Double DQN: online net selects action, target net evaluates it
-            next_actions = self.online_net(ns).argmax(dim=1, keepdim=True)
-            next_q = self.target_net(ns).gather(1, next_actions).squeeze(1)
+            online_next_q = self.online_net(ns)
+            target_next_q = self.target_net(ns)
+            next_q = masked_double_dqn_next_q(
+                online_next_q,
+                target_next_q,
+                next_masks,
+            )
             targets = r + self.config.gamma * (1.0 - d) * next_q
 
         td_errors = (q_vals - targets).detach()

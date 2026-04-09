@@ -40,11 +40,14 @@ class CommandExecutor:
             }
         """
         started = time.time()
+        session_meta = self.session.metadata()
 
         if not is_safe_command(command):
             entry = {
                 "ts":          datetime.now(timezone.utc).isoformat(),
                 "action":      action_name,
+                "session_type": session_meta.get("session_type", ""),
+                "persistent_context": bool(session_meta.get("persistent_context", False)),
                 "command":     command,
                 "blocked":     True,
                 "output":      "",
@@ -59,6 +62,8 @@ class CommandExecutor:
         entry = {
             "ts":          datetime.now(timezone.utc).isoformat(),
             "action":      action_name,
+            "session_type": session_meta.get("session_type", ""),
+            "persistent_context": bool(session_meta.get("persistent_context", False)),
             "command":     command,
             "blocked":     False,
             "output":      session_result.get("output", ""),

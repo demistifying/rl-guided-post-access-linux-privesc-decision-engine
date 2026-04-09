@@ -1,0 +1,329 @@
+{
+  "baseline": {
+    "overall": {
+      "success_rate": 0.6676666736602783,
+      "avg_steps": 6.857333183288574,
+      "avg_reward": 14.99216365814209,
+      "avg_risk_exposure": 0.1379866749048233,
+      "avg_redundant_actions": 0.0,
+      "avg_escalation_attempts": 0.7310000061988831,
+      "kernel_unsafe_rate": 0.0,
+      "stop_rate": 0.3323333263397217,
+      "actionable_host_rate": 0.6990000009536743,
+      "n_episodes": 3000.0,
+      "stop_precision": 1.0
+    },
+    "per_seed": [
+      {
+        "success_rate": 0.6610000133514404,
+        "avg_steps": 6.875999927520752,
+        "avg_reward": 14.898070335388184,
+        "avg_risk_exposure": 0.13528001308441162,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.7160000205039978,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.33899998664855957,
+        "actionable_host_rate": 0.6880000233650208,
+        "n_episodes": 1000.0,
+        "stop_precision": 1.0,
+        "seed": 7.0
+      },
+      {
+        "success_rate": 0.6710000038146973,
+        "avg_steps": 6.827000141143799,
+        "avg_reward": 15.057411193847656,
+        "avg_risk_exposure": 0.1352900117635727,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.7360000014305115,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.32899999618530273,
+        "actionable_host_rate": 0.7089999914169312,
+        "n_episodes": 1000.0,
+        "stop_precision": 1.0,
+        "seed": 42.0
+      },
+      {
+        "success_rate": 0.6710000038146973,
+        "avg_steps": 6.86899995803833,
+        "avg_reward": 15.021010398864746,
+        "avg_risk_exposure": 0.1433900147676468,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.7409999966621399,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.32899999618530273,
+        "actionable_host_rate": 0.699999988079071,
+        "n_episodes": 1000.0,
+        "stop_precision": 1.0,
+        "seed": 1337.0
+      }
+    ],
+    "per_archetype": {
+      "containerized_app": {
+        "success_rate": 0.4535147249698639,
+        "avg_steps": 8.074830055236816,
+        "avg_reward": 11.639524459838867,
+        "avg_risk_exposure": 0.12487528473138809,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.4852607846260071,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.5464852452278137,
+        "actionable_host_rate": 0.478458046913147,
+        "n_episodes": 441.0,
+        "stop_precision": 1.0
+      },
+      "corporate_app": {
+        "success_rate": 0.6572890281677246,
+        "avg_steps": 7.02046012878418,
+        "avg_reward": 14.846957206726074,
+        "avg_risk_exposure": 0.13386189937591553,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.7289002537727356,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.3427110016345978,
+        "actionable_host_rate": 0.7033247947692871,
+        "n_episodes": 782.0,
+        "stop_precision": 1.0
+      },
+      "ctf_lab": {
+        "success_rate": 0.8454258441925049,
+        "avg_steps": 6.539432048797607,
+        "avg_reward": 17.987255096435547,
+        "avg_risk_exposure": 0.22189275920391083,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.9684542417526245,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.15457412600517273,
+        "actionable_host_rate": 0.8801261782646179,
+        "n_episodes": 317.0,
+        "stop_precision": 1.0
+      },
+      "hardened_host": {
+        "success_rate": 0.24625267088413239,
+        "avg_steps": 8.942184448242188,
+        "avg_reward": 7.628586769104004,
+        "avg_risk_exposure": 0.06327623128890991,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.30620986223220825,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.7537473440170288,
+        "actionable_host_rate": 0.2847965657711029,
+        "n_episodes": 467.0,
+        "stop_precision": 1.0,
+        "stop_precision_on_hardened_hosts": 1.0
+      },
+      "neglected_server": {
+        "success_rate": 0.9123867154121399,
+        "avg_steps": 5.309164047241211,
+        "avg_reward": 19.102344512939453,
+        "avg_risk_exposure": 0.1554078608751297,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.965760350227356,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.0876132920384407,
+        "actionable_host_rate": 0.9305136203765869,
+        "n_episodes": 993.0,
+        "stop_precision": 1.0
+      }
+    }
+  },
+  "dqn": {
+    "overall": {
+      "success_rate": 0.6650000214576721,
+      "avg_steps": 6.860666751861572,
+      "avg_reward": 15.207390785217285,
+      "avg_risk_exposure": 0.14509333670139313,
+      "avg_redundant_actions": 0.0,
+      "avg_escalation_attempts": 0.7356666922569275,
+      "kernel_unsafe_rate": 0.0,
+      "stop_rate": 0.33500000834465027,
+      "actionable_host_rate": 0.6959999799728394,
+      "n_episodes": 3000.0,
+      "stop_precision": 1.0
+    },
+    "per_seed": [
+      {
+        "success_rate": 0.6620000004768372,
+        "avg_steps": 6.868000030517578,
+        "avg_reward": 15.184961318969727,
+        "avg_risk_exposure": 0.14208999276161194,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.7229999899864197,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.33799999952316284,
+        "actionable_host_rate": 0.6899999976158142,
+        "n_episodes": 1000.0,
+        "stop_precision": 1.0,
+        "seed": 7.0
+      },
+      {
+        "success_rate": 0.6620000004768372,
+        "avg_steps": 6.932000160217285,
+        "avg_reward": 15.18187141418457,
+        "avg_risk_exposure": 0.14608000218868256,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.7400000095367432,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.33799999952316284,
+        "actionable_host_rate": 0.6980000138282776,
+        "n_episodes": 1000.0,
+        "stop_precision": 1.0,
+        "seed": 42.0
+      },
+      {
+        "success_rate": 0.6710000038146973,
+        "avg_steps": 6.7820000648498535,
+        "avg_reward": 15.255339622497559,
+        "avg_risk_exposure": 0.1471100002527237,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.7440000176429749,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.32899999618530273,
+        "actionable_host_rate": 0.699999988079071,
+        "n_episodes": 1000.0,
+        "stop_precision": 1.0,
+        "seed": 1337.0
+      }
+    ],
+    "per_archetype": {
+      "containerized_app": {
+        "success_rate": 0.4577777683734894,
+        "avg_steps": 8.006667137145996,
+        "avg_reward": 11.78071117401123,
+        "avg_risk_exposure": 0.13440001010894775,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.4933333396911621,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.5422222018241882,
+        "actionable_host_rate": 0.48222222924232483,
+        "n_episodes": 450.0,
+        "stop_precision": 1.0
+      },
+      "corporate_app": {
+        "success_rate": 0.65234375,
+        "avg_steps": 7.35546875,
+        "avg_reward": 15.0888671875,
+        "avg_risk_exposure": 0.13821615278720856,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.7265625,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.34765625,
+        "actionable_host_rate": 0.69140625,
+        "n_episodes": 768.0,
+        "stop_precision": 1.0
+      },
+      "ctf_lab": {
+        "success_rate": 0.8409090638160706,
+        "avg_steps": 6.201298713684082,
+        "avg_reward": 18.000551223754883,
+        "avg_risk_exposure": 0.22185064852237701,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.9740259647369385,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.15909090638160706,
+        "actionable_host_rate": 0.8831169009208679,
+        "n_episodes": 308.0,
+        "stop_precision": 1.0
+      },
+      "hardened_host": {
+        "success_rate": 0.23890063166618347,
+        "avg_steps": 9.076109886169434,
+        "avg_reward": 7.536321640014648,
+        "avg_risk_exposure": 0.06790698319673538,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.31289640069007874,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.7610993385314941,
+        "actionable_host_rate": 0.2811839282512665,
+        "n_episodes": 473.0,
+        "stop_precision": 1.0,
+        "stop_precision_on_hardened_hosts": 1.0
+      },
+      "neglected_server": {
+        "success_rate": 0.9150848984718323,
+        "avg_steps": 5.121878147125244,
+        "avg_reward": 19.604145050048828,
+        "avg_risk_exposure": 0.1680319756269455,
+        "avg_redundant_actions": 0.0,
+        "avg_escalation_attempts": 0.9780219793319702,
+        "kernel_unsafe_rate": 0.0,
+        "stop_rate": 0.08491508662700653,
+        "actionable_host_rate": 0.9340659379959106,
+        "n_episodes": 1001.0,
+        "stop_precision": 1.0
+      }
+    }
+  },
+  "comparison": {
+    "success_rate": {
+      "difference": -0.002666652202606201,
+      "ci_low": -0.026008356362581253,
+      "ci_high": 0.02033334970474243,
+      "baseline_mean": 0.6676666736602783,
+      "candidate_mean": 0.6650000214576721
+    },
+    "avg_steps": {
+      "difference": 0.003333568572998047,
+      "ci_low": -0.15402528643608093,
+      "ci_high": 0.15800829231739044,
+      "baseline_mean": 6.857333183288574,
+      "candidate_mean": 6.860666751861572
+    },
+    "avg_reward": {
+      "difference": 0.2152271270751953,
+      "ci_low": -0.2022569477558136,
+      "ci_high": 0.6319764256477356,
+      "baseline_mean": 14.99216365814209,
+      "candidate_mean": 15.207390785217285
+    },
+    "avg_risk_exposure": {
+      "difference": 0.007106661796569824,
+      "ci_low": -0.0007800843450240791,
+      "ci_high": 0.014933831058442593,
+      "baseline_mean": 0.1379866749048233,
+      "candidate_mean": 0.14509333670139313
+    },
+    "avg_redundant_actions": {
+      "difference": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "baseline_mean": 0.0,
+      "candidate_mean": 0.0
+    },
+    "avg_escalation_attempts": {
+      "difference": 0.004666686058044434,
+      "ci_low": -0.021666646003723145,
+      "ci_high": 0.031333327293395996,
+      "baseline_mean": 0.7310000061988831,
+      "candidate_mean": 0.7356666922569275
+    },
+    "kernel_unsafe_rate": {
+      "difference": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "baseline_mean": 0.0,
+      "candidate_mean": 0.0
+    }
+  },
+  "criteria": {
+    "dqn_success_rate": 0.6650000214576721,
+    "baseline_success_rate": 0.6676666736602783,
+    "dqn_avg_steps": 6.860666751861572,
+    "baseline_avg_steps": 6.857333183288574,
+    "step_reduction_pct": -0.05,
+    "dqn_beats_baseline_success": false,
+    "dqn_uses_fewer_steps": false,
+    "risk_not_significantly_worse": true,
+    "kernel_discipline_not_significantly_worse": true
+  },
+  "config": {
+    "model_path": "artifacts/track3_tuned_v2/dqn_model.pt",
+    "seeds": [
+      7,
+      42,
+      1337
+    ],
+    "episodes_per_seed": 1000,
+    "max_steps": 20,
+    "bootstrap_samples": 5000
+  }
+}

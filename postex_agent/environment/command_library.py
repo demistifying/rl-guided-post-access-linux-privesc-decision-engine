@@ -21,6 +21,8 @@ _ENUM_COMMANDS: Dict[Action, List[str]] = {
     Action.IDENTIFY_OS: [
         "uname -a",
         "cat /etc/os-release 2>/dev/null",
+        "cat /proc/1/cgroup 2>/dev/null | head -n 20",
+        "test -f /.dockerenv && echo container:docker",
     ],
     Action.IDENTIFY_USER: [
         "id",

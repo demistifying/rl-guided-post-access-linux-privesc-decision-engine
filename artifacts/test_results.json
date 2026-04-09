@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-04-07T19:53:59.893778+00:00",
-  "total": 28,
-  "passed": 28,
+  "timestamp": "2026-04-08T17:58:07.013582+00:00",
+  "total": 47,
+  "passed": 47,
   "failed": 0,
   "tests": [
     {
@@ -22,6 +22,10 @@
     },
     {
       "name": "Parser: SudoParser no sudo",
+      "status": "pass"
+    },
+    {
+      "name": "Parser: SudoParser distinguishes passworded entries",
       "status": "pass"
     },
     {
@@ -61,11 +65,47 @@
       "status": "pass"
     },
     {
+      "name": "Parser: UserParser extracts privileged groups",
+      "status": "pass"
+    },
+    {
+      "name": "Parser: OSParser detects container indicators",
+      "status": "pass"
+    },
+    {
       "name": "CommandLibrary: get_commands returns lists",
       "status": "pass"
     },
     {
       "name": "CommandLibrary: safety blocklist blocks rm -rf",
+      "status": "pass"
+    },
+    {
+      "name": "ManualShellSession: executes local command and reports metadata",
+      "status": "pass"
+    },
+    {
+      "name": "ManualShellSession: POSIX mode preserves shell state",
+      "status": "pass"
+    },
+    {
+      "name": "CommandExecutor: includes session metadata in execution record",
+      "status": "pass"
+    },
+    {
+      "name": "LiveExecutionController: shared runtime updates state and step info",
+      "status": "pass"
+    },
+    {
+      "name": "RealEnv: delegates to shared live runtime",
+      "status": "pass"
+    },
+    {
+      "name": "MetasploitSession: wrapped output parsing recovers exit code",
+      "status": "pass"
+    },
+    {
+      "name": "MetasploitSession: retries after reconnectable failure",
       "status": "pass"
     },
     {
@@ -78,6 +118,10 @@
     },
     {
       "name": "StateBuilder: updates os info",
+      "status": "pass"
+    },
+    {
+      "name": "StateBuilder: stores deployment-faithful metadata",
       "status": "pass"
     },
     {
@@ -115,11 +159,43 @@
     {
       "name": "BaselinePolicy: exploits found vector after enumeration",
       "status": "pass"
+    },
+    {
+      "name": "Actions: kernel retry budget respected",
+      "status": "pass"
+    },
+    {
+      "name": "SimulationEnv: reset can force archetype",
+      "status": "pass"
+    },
+    {
+      "name": "SimulationEnv: correct stop on host with no actionable paths",
+      "status": "pass"
+    },
+    {
+      "name": "SimulationEnv: delaying found sudo incurs opportunity-cost penalty",
+      "status": "pass"
+    },
+    {
+      "name": "BaselinePolicy: checks writable paths before cron exploit",
+      "status": "pass"
+    },
+    {
+      "name": "Evaluate: per-archetype summary returned",
+      "status": "pass"
+    },
+    {
+      "name": "DQNAgent: masked bootstrap ignores invalid next actions",
+      "status": "pass"
+    },
+    {
+      "name": "TrainDQN: validation ranking prefers success then efficiency",
+      "status": "pass"
     }
   ],
   "baseline_metrics": {
     "episodes": 200,
-    "success_rate": 0.505,
-    "avg_steps": 10.55
+    "success_rate": 0.695,
+    "avg_steps": 6.75
   }
 }

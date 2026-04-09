@@ -58,6 +58,7 @@ class CronParser(BaseParser):
             "vector_found": bool(cron_jobs),
             "details": {
                 "cron_jobs":           cron_jobs,
+                "writable_targets":    writable_scripts,
                 "potentially_writable": writable_scripts,
             },
         }

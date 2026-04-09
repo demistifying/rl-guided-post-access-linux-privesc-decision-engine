@@ -68,18 +68,33 @@ def update_state(state: HostState, action: Action, parsed: Dict) -> HostState:
         state.os_identified = True
         kernel_version = details.get("kernel_version")
         os_name = details.get("os_name")
+        container_indicators = details.get("container_indicators", [])
         if kernel_version:
             state.kernel_version = kernel_version
         if os_name:
             state.os_info = os_name
+        if container_indicators:
+            state.container_indicators = _dedupe(
+                state.container_indicators,
+                container_indicators,
+            )
+        state.is_containerized = bool(
+            state.container_indicators or details.get("is_containerized", False)
+        )
         return state
 
     if action == Action.IDENTIFY_USER:
         state.user_identified = True
         username = details.get("username")
         is_root = bool(details.get("is_root", False))
+        groups = details.get("groups", [])
+        privileged_groups = details.get("privileged_groups", [])
         if username:
             state.current_user = username
+        if groups:
+            state.user_groups = _dedupe(state.user_groups, groups)
+        if privileged_groups:
+            state.privileged_groups = _dedupe(state.privileged_groups, privileged_groups)
         if is_root:
             state.current_privilege = 1
         return state
@@ -97,6 +112,14 @@ def update_state(state: HostState, action: Action, parsed: Dict) -> HostState:
         # ── Populate rich metadata (for CLI display) ──────────────
         if vector == "sudo":
             state.sudo_commands = _dedupe(state.sudo_commands, details.get("sudo_commands", []))
+            state.sudo_nopasswd_entries = _dedupe(
+                state.sudo_nopasswd_entries,
+                details.get("nopasswd_entries", []),
+            )
+            state.sudo_password_entries = _dedupe(
+                state.sudo_password_entries,
+                details.get("passworded_entries", []),
+            )
         elif vector == "suid":
             state.exploitable_suid_bins = _dedupe(
                 state.exploitable_suid_bins, details.get("exploitable_bins", [])
@@ -109,6 +132,10 @@ def update_state(state: HostState, action: Action, parsed: Dict) -> HostState:
             state.writable_paths = _dedupe(state.writable_paths, details.get("writable_paths", []))
         elif vector == "cron":
             state.cron_jobs = _dedupe(state.cron_jobs, details.get("cron_jobs", []))
+            state.cron_writable_targets = _dedupe(
+                state.cron_writable_targets,
+                details.get("writable_targets", details.get("potentially_writable", [])),
+            )
         elif vector == "credentials":
             state.credentials_found = _dedupe(
                 state.credentials_found, details.get("credentials", [])

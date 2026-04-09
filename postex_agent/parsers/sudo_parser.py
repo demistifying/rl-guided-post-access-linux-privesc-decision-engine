@@ -32,6 +32,7 @@ class SudoParser(BaseParser):
 
         sudo_commands: list[str] = []
         nopasswd_entries: list[str] = []
+        passworded_entries: list[str] = []
         exploitable_bins: list[str] = []
 
         for line in lines:
@@ -54,6 +55,9 @@ class SudoParser(BaseParser):
                         base = Path(token).name.lower()
                         if base in _GTFOBINS_HINTS and token not in exploitable_bins:
                             exploitable_bins.append(token)
+            elif sudo_match:
+                command = sudo_match.group(1).strip()
+                passworded_entries.append(command)
 
         denied = "not allowed to execute sudo" in raw.lower() or "may not run sudo" in raw.lower()
         vector_found = bool(nopasswd_entries or exploitable_bins) and not denied
@@ -65,6 +69,7 @@ class SudoParser(BaseParser):
                 "raw": raw,
                 "sudo_commands": sudo_commands,
                 "nopasswd_entries": nopasswd_entries,
+                "passworded_entries": passworded_entries,
                 "exploitable_bins": exploitable_bins,
             },
         }

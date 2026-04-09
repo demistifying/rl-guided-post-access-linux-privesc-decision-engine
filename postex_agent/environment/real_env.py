@@ -5,14 +5,9 @@ from typing import Any, Dict, Tuple
 
 import numpy as np
 
-from postex_agent.core.actions import Action, VECTOR_BY_EXPLOIT_ACTION
+from postex_agent.core.actions import Action
 from postex_agent.core.state import HostState
-from postex_agent.environment.command_library import get_commands
-from postex_agent.environment.parser_registry import parse_output
-from postex_agent.environment.state_builder import (
-    update_state, update_temporal, VECTOR_RISK_PENALTIES,
-)
-from postex_agent.execution.command_executor import CommandExecutor
+from postex_agent.execution.live_runtime import LiveExecutionController
 from postex_agent.sessions.base_session import BaseSession
 
 
@@ -21,79 +16,30 @@ StepResult = Tuple[np.ndarray, float, bool, Dict[str, Any]]
 
 class RealEnv:
     """
-    Wraps a live shell session with the same step() interface as SimulationEnv.
-    No reward shaping in live mode — always returns 0.0 reward.
-    The RL policy drives action selection; this class handles execution.
+    Wrap a live shell session with the same ``step()`` interface as ``SimulationEnv``.
+
+    Live mode does not shape reward today, so ``step()`` always returns ``0.0``.
+    The shared live runtime owns execution, parsing, and state updates.
     """
 
     def __init__(
         self,
-        session:   BaseSession,
+        session: BaseSession,
         max_steps: int = 30,
-        log_path:  str = "logs/execution.jsonl",
+        log_path: str = "logs/execution.jsonl",
     ):
-        self.executor       = CommandExecutor(session=session, log_path=log_path)
-        self.max_steps      = max_steps
-        self.state          = HostState()
-        self.steps          = 0
-        self.done           = False
-        self._cumulative_risk = 0.0
+        self.runtime = LiveExecutionController(
+            session=session,
+            max_steps=max_steps,
+            log_path=log_path,
+        )
 
     def reset(self) -> np.ndarray:
-        self.state            = HostState()
-        self.steps            = 0
-        self.done             = False
-        self._cumulative_risk = 0.0
-        return self.state.to_vector()
+        return self.runtime.reset()
 
     def step(self, action: int | Action) -> StepResult:
-        if self.done:
-            raise RuntimeError("Episode is done. Call reset().")
-
-        action_enum = Action(int(action))
-        # Pass current state so exploit actions get contextual one-liners
-        commands    = get_commands(action_enum, state=self.state)
-
-        combined_output = ""
-        exec_results    = []
-
-        for command in commands:
-            # Skip comment-only informational lines
-            if command.strip().startswith("#"):
-                continue
-            result = self.executor.execute(command=command, action_name=action_enum.name)
-            exec_results.append(result)
-            # result["output"] is always a str — CommandExecutor guarantees this
-            combined_output += result["output"] + "\n"
-
-        parsed = parse_output(action_enum, combined_output)
-        update_state(self.state, action_enum, parsed)
-
-        # Track cumulative risk for exploit actions
-        if action_enum in VECTOR_BY_EXPLOIT_ACTION:
-            vector = VECTOR_BY_EXPLOIT_ACTION[action_enum]
-            self._cumulative_risk += VECTOR_RISK_PENALTIES.get(vector, 0.0)
-
-        self.steps += 1
-
-        # Update temporal features (time_step, cumulative_risk)
-        update_temporal(self.state, self.steps, self.max_steps, self._cumulative_risk)
-
-        if (
-            action_enum == Action.STOP
-            or self.state.current_privilege == 1
-            or self.steps >= self.max_steps
-        ):
-            self.done = True
-
-        info: Dict[str, Any] = {
-            "action":    action_enum.name,
-            "commands":  commands,
-            "execution": exec_results,
-            "parsed":    parsed,
-        }
-        return self.state.to_vector(), 0.0, self.done, info
+        return self.runtime.step(action)
 
     @property
     def current_state(self) -> HostState:
-        return self.state
+        return self.runtime.current_state

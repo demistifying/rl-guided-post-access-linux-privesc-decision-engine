@@ -33,6 +33,7 @@ postex_agent/
     actions.py
   environment/
     simulation_env.py
+    host_archetypes.py
     real_env.py
     command_library.py
     parser_registry.py
@@ -67,13 +68,19 @@ tests/
   test_integration.py
 ```
 
-## State Representation (17-dim vector)
+## State Representation (35-dim vector)
 
 - `0`: current_privilege
 - `1`: os_identified
 - `2`: user_identified
 - `3..9`: checked flags
 - `10..16`: found flags
+- `17..23`: exploit failure counts
+- `24..30`: vector richness signals
+- `31`: credential count
+- `32`: credential quality
+- `33`: normalized timestep
+- `34`: cumulative risk exposure
 
 Vector key order:
 `sudo, suid, capabilities, writable_path, cron, credentials, kernel`
@@ -131,6 +138,23 @@ python -m postex_agent.rl.evaluate_dqn \
   --report-path artifacts/eval_report.json
 ```
 
+## Track 3 Simulator
+
+Track 3 upgrades the training distribution to better reflect real post-exploitation:
+
+- Correlated host archetypes: `neglected_server`, `corporate_app`, `containerized_app`, `hardened_host`, `ctf_lab`
+- Vector-specific exploit success rates:
+  - `sudo` and `suid` are near-deterministic when found
+  - `capabilities` are high confidence and improve with richer findings
+  - `cron` becomes significantly stronger when `writable_path` is also found
+  - `kernel` remains the genuinely stochastic vector
+- Limited retry budget:
+  - deterministic vectors are one-shot
+  - `kernel` is retryable up to 3 times
+- Per-archetype evaluation summaries and Track 3 policy-discipline metrics are written by `evaluate_dqn.py`
+
+Track 3 intentionally keeps the live CLI/session execution path stable. The new realism is in the simulator and evaluation stack so models can be retrained without changing the operator workflow.
+
 Interactive decision support:
 
 ```bash
@@ -174,7 +198,11 @@ Session output and decisions are logged as JSONL in `logs/`.
 
 ```bash
 python tests/test_integration.py
+python tests/test_e2e_cli.py
 ```
 
-Expected: `All tests passed! [OK]`
+Expected:
+
+- `All tests passed! [OK]` for the integration suite
+- `All E2E checks passed!` for the CLI end-to-end suite
 

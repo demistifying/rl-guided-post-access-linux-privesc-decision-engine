@@ -21,6 +21,13 @@ class BaseSession(ABC):
         """Execute a shell command and return structured output."""
         ...
 
+    def metadata(self) -> dict:
+        """Return session capabilities for logging and runtime decisions."""
+        return {
+            "session_type": self.__class__.__name__,
+            "persistent_context": False,
+        }
+
     @abstractmethod
     def close(self) -> None:
         """Release underlying resources."""
