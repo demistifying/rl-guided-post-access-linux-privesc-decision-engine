@@ -2,8 +2,8 @@
   PostEx Agent - DQN Training Log
 ========================================================================
 
-  Timestamp      : 2026-04-09 06:29:56 UTC
-  Duration       : 530.0s (8.8m)
+  Timestamp      : 2026-04-09 19:47:49 UTC
+  Duration       : 485.9s (8.1m)
   Device         : cpu
 
 ------------------------------------------------------------------------
@@ -12,7 +12,7 @@
   Episodes              : 30000
   Seed                  : 42
   Max steps / episode   : 20
-  Network               : 35->64->64->16
+  Network               : 35->64->64->18
   Gamma                 : 0.95
   Learning rate         : 0.001
   Replay buffer size    : 50000
@@ -25,106 +25,160 @@
 ------------------------------------------------------------------------
    Episode   Epsilon   Success    Reward     Steps        Loss      Risk   Redundant
   --------  --------  --------  --------  --------  ----------  --------  ----------
-      5000     0.050    0.4342     3.910      5.45      3.5442    0.1029        0.00
-     10000     0.050    0.6616     9.864      5.83      2.4582    0.1612        0.00
-     15000     0.050    0.6438     9.630      5.55      2.1388    0.1582        0.00
-     20000     0.050    0.6490     9.712      5.58      2.2579    0.1529        0.00
-     25000     0.050    0.6494     9.728      5.48      2.3488    0.1562        0.00
-     30000     0.050    0.6668    10.132      5.22      2.4423    0.1611        0.00
+       500     0.905    0.2880    -1.291      5.04      6.6370    0.0854        0.00
+      1000     0.810    0.3520     0.264      5.24      2.3178    0.0968        0.00
+      1500     0.715    0.3860     1.632      5.23      2.3296    0.1189        0.00
+      2000     0.620    0.4380     2.738      5.13      2.3269    0.1128        0.00
+      2500     0.525    0.5000     4.381      5.40      2.7143    0.1446        0.00
+      3000     0.430    0.5360     5.308      5.47      2.5421    0.1472        0.00
+      3500     0.335    0.5460     5.990      5.73      2.5357    0.1433        0.00
+      4000     0.240    0.5800     6.701      5.99      2.5590    0.1832        0.00
+      4500     0.145    0.6420     8.166      6.07      2.5473    0.1983        0.00
+      5000     0.050    0.7480    10.940      6.23      2.4983    0.1989        0.00
+      5500     0.050    0.7640    11.297      6.06      2.4364    0.2012        0.00
+      6000     0.050    0.7860    11.860      5.42      2.5954    0.2101        0.00
+      6500     0.050    0.7220    10.635      5.57      2.6140    0.1896        0.00
+      7000     0.050    0.7160    10.130      6.50      2.4132    0.2108        0.00
+      7500     0.050    0.7480    10.958      6.01      2.2364    0.1872        0.00
+      8000     0.050    0.7680    11.433      5.88      2.2623    0.1945        0.00
+      8500     0.050    0.7260    10.763      5.81      2.2495    0.1667        0.00
+      9000     0.050    0.7580    11.448      5.46      2.2345    0.1853        0.00
+      9500     0.050    0.7660    11.437      5.49      1.8892    0.1890        0.00
+     10000     0.050    0.7660    11.566      5.34      2.0650    0.1861        0.00
+     10500     0.050    0.7260    10.748      5.44      2.2054    0.1811        0.00
+     11000     0.050    0.7500    11.147      5.69      2.2168    0.1982        0.00
+     11500     0.050    0.7340    10.826      5.99      2.1199    0.1883        0.00
+     12000     0.050    0.7400    10.969      5.97      2.1210    0.1851        0.00
+     12500     0.050    0.7400    10.881      5.94      2.2884    0.2017        0.00
+     13000     0.050    0.7500    11.098      5.62      2.1190    0.1958        0.00
+     13500     0.050    0.7640    11.570      5.35      2.2722    0.1819        0.00
+     14000     0.050    0.7760    11.667      5.33      2.2175    0.1986        0.00
+     14500     0.050    0.6900     9.881      6.25      2.2875    0.1925        0.00
+     15000     0.050    0.7380    10.891      5.33      2.2813    0.1893        0.00
+     15500     0.050    0.7440    10.951      5.64      2.3275    0.1978        0.00
+     16000     0.050    0.7480    11.242      5.34      2.3687    0.1839        0.00
+     16500     0.050    0.7420    11.005      5.30      2.4127    0.1973        0.00
+     17000     0.050    0.7300    10.647      5.75      2.3762    0.1895        0.00
+     17500     0.050    0.7320    10.790      5.91      2.4683    0.1883        0.00
+     18000     0.050    0.7420    11.078      5.71      2.4620    0.1835        0.00
+     18500     0.050    0.7080    10.150      6.09      2.3513    0.1866        0.00
+     19000     0.050    0.7640    11.308      5.79      2.3916    0.2064        0.00
+     19500     0.050    0.7240    10.499      6.19      2.3196    0.2087        0.00
+     20000     0.050    0.7280    10.391      6.07      2.2799    0.2044        0.00
+     20500     0.050    0.7260    10.570      5.73      2.3956    0.1969        0.00
+     21000     0.050    0.7600    11.276      5.78      2.3932    0.2028        0.00
+     21500     0.050    0.7400    10.760      5.90      2.2891    0.2032        0.00
+     22000     0.050    0.7300    10.686      5.69      2.2704    0.1930        0.00
+     22500     0.050    0.7300    10.811      5.52      2.3123    0.1821        0.00
+     23000     0.050    0.7560    11.496      5.24      2.3021    0.1805        0.00
+     23500     0.050    0.7420    11.174      5.29      2.3188    0.1765        0.00
+     24000     0.050    0.7420    11.107      5.40      2.5112    0.1973        0.00
+     24500     0.050    0.7700    11.712      5.32      2.3211    0.2094        0.00
+     25000     0.050    0.7400    11.335      5.38      2.3471    0.1642        0.00
+     25500     0.050    0.7520    11.346      5.46      2.3780    0.1979        0.00
+     26000     0.050    0.7380    10.891      5.68      2.3201    0.1971        0.00
+     26500     0.050    0.7400    10.844      5.50      2.4016    0.2119        0.00
+     27000     0.050    0.7420    10.822      6.18      2.4662    0.1830        0.00
+     27500     0.050    0.7560    11.199      5.74      2.3140    0.2050        0.00
+     28000     0.050    0.7520    11.255      5.57      2.4170    0.1976        0.00
+     28500     0.050    0.7220    10.412      6.07      2.4114    0.1988        0.00
+     29000     0.050    0.7720    11.599      5.30      2.5425    0.2065        0.00
+     29500     0.050    0.7420    11.088      5.39      2.4686    0.1958        0.00
+     30000     0.050    0.7260    10.786      5.61      2.3844    0.1828        0.00
 
 ------------------------------------------------------------------------
   ROLLING-WINDOW SUMMARY
 ------------------------------------------------------------------------
-  Last   100 eps:  success=0.6900  reward=  10.756  steps=  5.16  loss= 2.5630  risk=0.1390
-  Last   500 eps:  success=0.6900  reward=  10.790  steps=  4.80  loss= 2.5835  risk=0.1609
-  Last  1000 eps:  success=0.6770  reward=  10.401  steps=  4.92  loss= 2.5520  risk=0.1688
+  Last   100 eps:  success=0.7700  reward=  11.547  steps=  5.37  loss= 2.4550  risk=0.1705
+  Last   500 eps:  success=0.7260  reward=  10.786  steps=  5.61  loss= 2.3844  risk=0.1828
+  Last  1000 eps:  success=0.7340  reward=  10.937  steps=  5.50  loss= 2.4265  risk=0.1893
 
 ------------------------------------------------------------------------
   VALIDATION SUMMARY
 ------------------------------------------------------------------------
-  ep=   500  success=0.6800  steps=6.89  reward=10.176  risk=0.1508
-  ep=  1000  success=0.6700  steps=8.13  reward=9.554  risk=0.1632
-  ep=  1500  success=0.6800  steps=6.14  reward=10.196  risk=0.1683
-  ep=  2000  success=0.6800  steps=5.43  reward=10.460  risk=0.1617
-  ep=  2500  success=0.6800  steps=7.54  reward=10.041  risk=0.1525
-  ep=  3000  success=0.6700  steps=7.12  reward=9.778  risk=0.1729
-  ep=  3500  success=0.6700  steps=6.08  reward=10.026  risk=0.1939
-  ep=  4000  success=0.6800  steps=6.97  reward=10.107  risk=0.1807
-  ep=  4500  success=0.6750  steps=5.73  reward=10.317  risk=0.1702
-  ep=  5000  success=0.6650  steps=5.53  reward=10.175  risk=0.1315
-  ep=  5500  success=0.6850  steps=7.08  reward=10.182  risk=0.1791
-  ep=  6000  success=0.6850  steps=5.28  reward=10.713  risk=0.1571
-  ep=  6500  success=0.6750  steps=6.48  reward=9.916  risk=0.1935
-  ep=  7000  success=0.6750  steps=6.53  reward=9.871  risk=0.1765
-  ep=  7500  success=0.6800  steps=4.34  reward=10.692  risk=0.1735
-  ep=  8000  success=0.6800  steps=7.08  reward=10.108  risk=0.1625
-  ep=  8500  success=0.6800  steps=5.03  reward=10.644  risk=0.1688
-  ep=  9000  success=0.6850  steps=5.87  reward=10.540  risk=0.1417
-  ep=  9500  success=0.6750  steps=5.83  reward=10.353  risk=0.1506
-  ep= 10000  success=0.6800  steps=5.30  reward=10.554  risk=0.1481
-  ep= 10500  success=0.6850  steps=5.04  reward=10.680  risk=0.1685
-  ep= 11000  success=0.6850  steps=6.93  reward=10.224  risk=0.1608
-  ep= 11500  success=0.6750  steps=4.50  reward=10.684  risk=0.1510
-  ep= 12000  success=0.6800  steps=4.68  reward=10.734  risk=0.1661
-  ep= 12500  success=0.6700  steps=4.75  reward=10.428  risk=0.1579
-  ep= 13000  success=0.6850  steps=6.36  reward=10.406  risk=0.1677
-  ep= 13500  success=0.6800  steps=4.20  reward=10.876  risk=0.1456
-  ep= 14000  success=0.6800  steps=5.05  reward=10.636  risk=0.1711
-  ep= 14500  success=0.6850  steps=4.34  reward=10.942  risk=0.1615
-  ep= 15000  success=0.6850  steps=5.89  reward=10.549  risk=0.1462
-  ep= 15500  success=0.6850  steps=6.43  reward=10.404  risk=0.1500
-  ep= 16000  success=0.6750  steps=4.83  reward=10.563  risk=0.1684
-  ep= 16500  success=0.6750  steps=5.25  reward=10.499  risk=0.1496
-  ep= 17000  success=0.6800  steps=5.65  reward=10.455  risk=0.1725
-  ep= 17500  success=0.6800  steps=4.75  reward=10.607  risk=0.1822
-  ep= 18000  success=0.6750  steps=5.09  reward=10.367  risk=0.1815
-  ep= 18500  success=0.6750  steps=4.59  reward=10.651  risk=0.1630
-  ep= 19000  success=0.6800  steps=5.00  reward=10.688  risk=0.1417
-  ep= 19500  success=0.6750  steps=5.88  reward=10.252  risk=0.1879
-  ep= 20000  success=0.6750  steps=4.16  reward=10.772  risk=0.1510
-  ep= 20500  success=0.6750  steps=7.39  reward=9.702  risk=0.1795
-  ep= 21000  success=0.6800  steps=5.36  reward=10.582  risk=0.1579
-  ep= 21500  success=0.6800  steps=6.99  reward=9.869  risk=0.1932
-  ep= 22000  success=0.6750  steps=5.24  reward=10.488  risk=0.1638
-  ep= 22500  success=0.6850  steps=5.65  reward=10.606  risk=0.1626
-  ep= 23000  success=0.6800  steps=5.46  reward=10.544  risk=0.1626
-  ep= 23500  success=0.6850  steps=6.75  reward=10.305  risk=0.1662
-  ep= 24000  success=0.6750  steps=5.24  reward=10.475  risk=0.1574
-  ep= 24500  success=0.6800  steps=5.04  reward=10.661  risk=0.1606
-  ep= 25000  success=0.6650  steps=5.17  reward=10.274  risk=0.1544
-  ep= 25500  success=0.6750  steps=4.61  reward=10.639  risk=0.1707
-  ep= 26000  success=0.6750  steps=4.87  reward=10.578  risk=0.1671
-  ep= 26500  success=0.6750  steps=4.92  reward=10.566  risk=0.1657
-  ep= 27000  success=0.6750  steps=5.38  reward=10.366  risk=0.1675
-  ep= 27500  success=0.6750  steps=5.38  reward=10.452  risk=0.1651
-  ep= 28000  success=0.6800  steps=6.58  reward=9.969  risk=0.1851
-  ep= 28500  success=0.6800  steps=4.77  reward=10.723  risk=0.1643
-  ep= 29000  success=0.6850  steps=4.75  reward=10.836  risk=0.1592
-  ep= 29500  success=0.6800  steps=4.78  reward=10.719  risk=0.1662
-  ep= 30000  success=0.6850  steps=5.44  reward=10.670  risk=0.1592
+  ep=   500  success=0.7900  steps=6.20  reward=10.121  risk=0.2205
+  ep=  1000  success=0.7900  steps=5.62  reward=11.848  risk=0.2499
+  ep=  1500  success=0.7800  steps=6.16  reward=11.485  risk=0.2391
+  ep=  2000  success=0.7900  steps=6.32  reward=12.055  risk=0.1988
+  ep=  2500  success=0.7900  steps=5.87  reward=11.959  risk=0.2365
+  ep=  3000  success=0.7900  steps=5.71  reward=12.164  risk=0.2137
+  ep=  3500  success=0.7900  steps=6.07  reward=11.856  risk=0.2288
+  ep=  4000  success=0.7900  steps=5.80  reward=12.034  risk=0.2374
+  ep=  4500  success=0.7850  steps=5.67  reward=12.127  risk=0.2067
+  ep=  5000  success=0.7900  steps=7.21  reward=11.747  risk=0.1993
+  ep=  5500  success=0.7900  steps=6.31  reward=11.975  risk=0.1997
+  ep=  6000  success=0.7850  steps=5.65  reward=12.095  risk=0.2150
+  ep=  6500  success=0.7900  steps=6.68  reward=11.915  risk=0.1978
+  ep=  7000  success=0.7900  steps=6.21  reward=12.140  risk=0.1784
+  ep=  7500  success=0.7900  steps=5.43  reward=12.245  risk=0.1896
+  ep=  8000  success=0.7850  steps=5.64  reward=12.151  risk=0.2011
+  ep=  8500  success=0.7900  steps=5.54  reward=12.239  risk=0.1975
+  ep=  9000  success=0.7900  steps=5.86  reward=12.151  risk=0.2060
+  ep=  9500  success=0.7900  steps=5.72  reward=12.276  risk=0.2055
+  ep= 10000  success=0.7900  steps=5.42  reward=12.346  risk=0.1801
+  ep= 10500  success=0.7900  steps=5.32  reward=12.385  risk=0.1761
+  ep= 11000  success=0.7900  steps=6.03  reward=12.098  risk=0.1983
+  ep= 11500  success=0.7900  steps=7.50  reward=11.674  risk=0.2131
+  ep= 12000  success=0.7900  steps=6.39  reward=11.806  risk=0.2089
+  ep= 12500  success=0.7900  steps=5.66  reward=12.257  risk=0.2034
+  ep= 13000  success=0.7900  steps=5.15  reward=12.393  risk=0.1816
+  ep= 13500  success=0.7900  steps=5.25  reward=12.371  risk=0.1806
+  ep= 14000  success=0.7900  steps=4.93  reward=12.482  risk=0.1906
+  ep= 14500  success=0.7900  steps=5.96  reward=11.690  risk=0.2314
+  ep= 15000  success=0.7900  steps=5.04  reward=12.444  risk=0.1795
+  ep= 15500  success=0.7900  steps=5.42  reward=12.366  risk=0.1807
+  ep= 16000  success=0.7900  steps=5.59  reward=12.348  risk=0.1756
+  ep= 16500  success=0.7900  steps=5.81  reward=12.054  risk=0.2064
+  ep= 17000  success=0.7900  steps=5.14  reward=12.390  risk=0.1958
+  ep= 17500  success=0.7900  steps=6.79  reward=11.788  risk=0.2159
+  ep= 18000  success=0.7900  steps=5.03  reward=12.421  risk=0.1952
+  ep= 18500  success=0.7900  steps=6.47  reward=12.045  risk=0.2003
+  ep= 19000  success=0.7900  steps=5.76  reward=12.054  risk=0.2172
+  ep= 19500  success=0.7850  steps=6.99  reward=11.496  risk=0.2390
+  ep= 20000  success=0.7900  steps=5.67  reward=12.242  risk=0.2043
+  ep= 20500  success=0.7850  steps=5.63  reward=12.052  risk=0.2055
+  ep= 21000  success=0.7900  steps=5.29  reward=12.282  risk=0.1894
+  ep= 21500  success=0.7900  steps=5.34  reward=12.345  risk=0.2054
+  ep= 22000  success=0.7850  steps=5.44  reward=12.106  risk=0.2064
+  ep= 22500  success=0.7900  steps=5.32  reward=12.359  risk=0.2049
+  ep= 23000  success=0.7900  steps=5.12  reward=12.358  risk=0.1844
+  ep= 23500  success=0.7850  steps=5.20  reward=12.138  risk=0.2255
+  ep= 24000  success=0.7900  steps=5.12  reward=12.362  risk=0.1977
+  ep= 24500  success=0.7850  steps=4.62  reward=12.297  risk=0.2228
+  ep= 25000  success=0.7900  steps=5.58  reward=12.189  risk=0.2021
+  ep= 25500  success=0.7850  steps=4.75  reward=12.377  risk=0.1896
+  ep= 26000  success=0.7850  steps=5.17  reward=12.165  risk=0.2265
+  ep= 26500  success=0.7850  steps=5.53  reward=12.166  risk=0.2040
+  ep= 27000  success=0.7900  steps=6.70  reward=11.902  risk=0.1970
+  ep= 27500  success=0.7900  steps=5.40  reward=12.320  risk=0.2025
+  ep= 28000  success=0.7850  steps=5.33  reward=12.236  risk=0.1748
+  ep= 28500  success=0.7850  steps=6.91  reward=11.545  risk=0.2210
+  ep= 29000  success=0.7900  steps=4.80  reward=12.371  risk=0.2318
+  ep= 29500  success=0.7900  steps=5.52  reward=12.253  risk=0.1999
+  ep= 30000  success=0.7900  steps=5.27  reward=12.312  risk=0.1854
 
-  Best validation checkpoint: ep 14500  success=0.6850  steps=4.34  risk=0.1615
+  Best validation checkpoint: ep 29000  success=0.7900  steps=4.80  risk=0.2318
 
 ------------------------------------------------------------------------
   FINAL RESULTS
 ------------------------------------------------------------------------
   episodes                : 30000.0000
   final_epsilon           : 0.0500
-  mean_success            : 0.6175
-  mean_steps              : 5.5202
-  mean_reward             : 8.8294
-  mean_risk               : 0.1488
-  best_validation_success : 0.6850
-  best_validation_steps   : 4.3400
-  best_validation_reward  : 10.9422
-  best_validation_risk    : 0.1615
-  best_validation_episode : 14500.0000
+  mean_success            : 0.7031
+  mean_steps              : 5.6582
+  mean_reward             : 9.9211
+  mean_risk               : 0.1849
+  best_validation_success : 0.7900
+  best_validation_steps   : 4.8000
+  best_validation_reward  : 12.3707
+  best_validation_risk    : 0.2318
+  best_validation_episode : 29000.0000
 
 ------------------------------------------------------------------------
   NOTABLE EPISODES
 ------------------------------------------------------------------------
-  Best  reward : ep      8  reward=   17.40  steps=  2  success=1
-  Worst reward : ep   6718  reward=  -27.03  steps= 14  success=0
+  Best  reward : ep    506  reward=   17.40  steps=  2  success=1
+  Worst reward : ep  16216  reward=  -37.52  steps= 19  success=0
 
 ------------------------------------------------------------------------
   OUTPUT FILES
