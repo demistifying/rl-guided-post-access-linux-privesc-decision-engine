@@ -18,6 +18,7 @@ from typing import List, Optional
 
 from postex_agent.core.actions import ACTION_DESCRIPTIONS, Action
 from postex_agent.core.state import HostState, VECTOR_KEYS
+from postex_agent.environment.command_library import get_commands
 from postex_agent.execution.live_runtime import LiveExecutionController
 from postex_agent.rl.policy_inference import RLPolicy
 
@@ -290,6 +291,82 @@ def run_agent(
         print(_c(f"[*] Saved Engagement Report to: {report_out}", GREEN))
 
 
+def dry_run_agent(
+    policy: RLPolicy,
+    max_steps: int = MAX_STEPS,
+    report_out: Optional[str] = None,
+) -> None:
+    """Show the full RL-planned attack chain without executing anything.
+
+    Uses the simulation environment to predict state transitions so the
+    pentester can preview the agent's strategy before going live.
+    """
+    from postex_agent.environment.simulation_env import SimulationEnv
+
+    print(_c("\n[*] DRY RUN — no commands will be executed.", YELLOW))
+    print(_c("[*] Simulating agent decisions against random host profiles...\n", GREY))
+
+    env = SimulationEnv(seed=42, max_steps=max_steps)
+    state_vec = env.reset()
+
+    plan: list[dict] = []
+
+    for step in range(1, max_steps + 1):
+        state = HostState.from_vector(state_vec)
+
+        print(f"\n{_c(f'Step {step}/{max_steps}', BOLD)}")
+        _print_state(state)
+
+        if state.current_privilege == 1:
+            print(_c("\n[OK] Root achieved in simulation. Plan complete.", GREEN))
+            break
+
+        action = policy.predict(state_vec)
+        top_actions = policy.top_actions(state_vec, n=3)
+        commands = get_commands(action, state=state)
+
+        _print_suggestion(action, commands, top_actions)
+
+        plan.append({
+            "step": step,
+            "action": action.name,
+            "commands": commands,
+            "description": ACTION_DESCRIPTIONS.get(action, ""),
+        })
+
+        if action == Action.STOP:
+            print(_c("\n[*] Agent would STOP here.", YELLOW))
+            break
+
+        state_vec, _, done, _ = env.step(int(action))
+        if done:
+            break
+
+    # ── Print summary ─────────────────────────────────────────────────
+    print(f"\n{'=' * 72}")
+    print(_c("  DRY RUN ATTACK PLAN SUMMARY", BOLD))
+    print(f"{'=' * 72}")
+    for entry in plan:
+        cmds_str = "; ".join(c for c in entry["commands"] if not c.strip().startswith("#"))
+        print(f"  Step {entry['step']}: {_c(entry['action'], CYAN)}")
+        if cmds_str:
+            print(f"         {_c(cmds_str[:120], GREY)}")
+    print(f"{'=' * 72}\n")
+
+    if report_out:
+        lines = ["# Dry Run Attack Plan\n"]
+        for entry in plan:
+            lines.append(f"### Step {entry['step']}: {entry['action']}")
+            lines.append(f"{entry['description']}\n")
+            for cmd in entry['commands']:
+                if not cmd.strip().startswith("#"):
+                    lines.append(f"```bash\n$ {cmd}\n```")
+            lines.append("")
+        with open(report_out, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        print(_c(f"[*] Dry run plan saved to: {report_out}", GREEN))
+
+
 def _build_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="postex-agent",
@@ -301,6 +378,11 @@ def _build_argparser() -> argparse.ArgumentParser:
         "--auto",
         action="store_true",
         help="Non-interactive: execute all RL suggestions automatically.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show planned attack chain without executing commands.",
     )
     parser.add_argument("--max-steps", type=int, default=MAX_STEPS)
     parser.add_argument("--log-dir", default="logs")
@@ -343,6 +425,17 @@ def main() -> None:
         print(_c("[*] This usually means the checkpoint is from an older model shape.", YELLOW))
         print(_c("[*] Retrain or pass a compatible model via --model-path.", YELLOW))
         sys.exit(1)
+
+    if args.dry_run:
+        try:
+            dry_run_agent(
+                policy=policy,
+                max_steps=args.max_steps,
+                report_out=args.report_out,
+            )
+        except KeyboardInterrupt:
+            print(_c("\n[*] Interrupted.", YELLOW))
+        return
 
     try:
         session = _build_session(args)
