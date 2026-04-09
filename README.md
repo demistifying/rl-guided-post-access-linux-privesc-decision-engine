@@ -5,23 +5,16 @@ It models Linux privilege escalation as an MDP and uses a DQN policy to recommen
 
 ## Architecture
 
-```
-Shell Session (manual/metasploit/ssh)
-        |
-        v
-Command Executor   <- safety blocklist enforcement
-        |
-        v
-Parser Engine      <- action-specific structured output parsers
-        |
-        v
-State Builder      <- updates HostState from parsed outputs
-        |
-        v
-RL Decision Engine <- DQN policy: state_vector -> action
-        |
-        v
-Action Selection   <- operator confirm or auto mode
+```mermaid
+graph TD
+    A[Shell Session<br/>SSH / Metasploit / Manual] -->|Raw Output| B(Command Executor)
+    B -.->|Blocklist Enforcement| B
+    B -->|Command Results| C(Parser Engine)
+    C -->|Structured Findings| D(State Builder)
+    D -->|35-dim State Vector| E(RL Decision Engine)
+    E -->|Recommended Action| F[Action Selection<br/>Auto / Manual]
+    F -->|Command Lookup| G[(Command Library)]
+    G -->|Execution| A
 ```
 
 ## Project Structure
@@ -117,6 +110,23 @@ Optional adapters:
 - `paramiko` for SSH session mode
 - `pymetasploit3` for Metasploit RPC mode
 
+## Quick Start
+
+1. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+2. **Run in Dry-Run Mode**: 
+   Preview the agent's decision-making logic on a simulated target (no real connection needed):
+   ```bash
+   postex-agent --dry-run
+   ```
+3. **Deploy against a live target via SSH**:
+   ```bash
+   postex-agent --session ssh --host 127.0.0.1 --user testuser --password testpass --auto
+   ```
+4. **View Report**: Once the agent stops or achieves root, it automatically generates a markdown engagement report summarizing the attack chain.
+
 ## Usage
 
 Train:
@@ -160,13 +170,13 @@ Track 3 intentionally keeps the live CLI/session execution path stable. The new 
 Interactive decision support:
 
 ```bash
-python -m postex_agent.cli.agent_cli --session manual --model-path artifacts/dqn_model.pt
+postex-agent --session manual --model-path artifacts/dqn_model.pt
 ```
 
 SSH mode:
 
 ```bash
-python -m postex_agent.cli.agent_cli \
+postex-agent \
   --session ssh \
   --host 10.10.10.5 \
   --user www-data \
@@ -177,7 +187,7 @@ python -m postex_agent.cli.agent_cli \
 Metasploit mode:
 
 ```bash
-python -m postex_agent.cli.agent_cli \
+postex-agent \
   --session metasploit \
   --msf-session 1 \
   --msf-host 127.0.0.1 \
