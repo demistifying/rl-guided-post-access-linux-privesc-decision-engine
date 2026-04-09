@@ -46,10 +46,10 @@ VECTOR_RISK_PENALTIES: Dict[str, float] = {
     "kernel": 0.45,
 }
 
-R_STEP = -0.15
-R_USEFUL_ENUM = 0.5
+R_STEP = -0.25
+R_USEFUL_ENUM = 0.0
 R_REDUNDANT = -1.0
-R_DISCOVERY = 1.5
+R_DISCOVERY = 0.0
 R_SUCCESS_ESCALATION = 18.0
 R_FAILED_ESCALATION = -4.0
 R_RETRYABLE_FAILURE = -2.0
@@ -58,6 +58,7 @@ R_EXPLOIT_WITHOUT_ENUM = -2.5
 R_CORRECT_STOP = 0.25
 R_PREMATURE_STOP = -6.0
 R_UNSAFE_KERNEL_ATTEMPT = -1.5
+R_IGNORED_SURE_FIRE_PATH = -3.0
 
 MAX_EPISODE_STEPS = 20
 MAX_CUMULATIVE_RISK = sum(VECTOR_RISK_PENALTIES.values())
@@ -368,7 +369,7 @@ class SimulationEnv:
             and action_enum not in VECTOR_BY_EXPLOIT_ACTION
             and action_enum not in (Action.VERIFY_ROOT, Action.STOP)
         ):
-            reward += R_UNSAFE_KERNEL_ATTEMPT / 2.0
+            reward += R_IGNORED_SURE_FIRE_PATH
             info["delayed_high_confidence_exploit"] = True
 
         self._steps += 1

@@ -54,7 +54,7 @@ class LiveExecutionController:
 
         action_enum = Action(int(action))
         commands = self.preview_commands(action_enum)
-        state_before = self.state.summary()
+        state_before = self.state.to_dict()
 
         combined_output = ""
         exec_results = []
@@ -78,6 +78,23 @@ class LiveExecutionController:
             vector = VECTOR_BY_EXPLOIT_ACTION[action_enum]
             self._cumulative_risk += VECTOR_RISK_PENALTIES.get(vector, 0.0)
 
+            # ── Post-exploit auto-verification ────────────────────────
+            # Real exploits typically produce no output (they spawn a
+            # shell), so the parser can't detect success.  Run `id` to
+            # check whether we actually escalated.
+            if self.state.current_privilege != 1:
+                verify_result = self.executor.execute(
+                    command="id",
+                    action_name="auto_verify",
+                    timeout=5,
+                )
+                exec_results.append(verify_result)
+                verify_parsed = parse_output(
+                    Action.VERIFY_ROOT,
+                    verify_result.get("output", ""),
+                )
+                update_state(self.state, Action.VERIFY_ROOT, verify_parsed)
+
         self.steps += 1
         update_temporal(self.state, self.steps, self.max_steps, self._cumulative_risk)
 
@@ -94,7 +111,7 @@ class LiveExecutionController:
             "execution": exec_results,
             "parsed": parsed,
             "state_before": state_before,
-            "state_after": self.state.summary(),
+            "state_after": self.state.to_dict(),
             "step": self.steps,
         }
         return self.state.to_vector(), 0.0, self.done, info

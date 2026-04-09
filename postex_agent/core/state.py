@@ -166,6 +166,24 @@ class HostState:
     def any_found(self) -> bool:
         return any(self.found.values())
 
+    def to_dict(self) -> dict:
+        return {
+            "current_privilege": self.current_privilege,
+            "os_identified": self.os_identified,
+            "user_identified": self.user_identified,
+            "os_info": self.os_info,
+            "kernel_version": self.kernel_version,
+            "is_containerized": self.is_containerized,
+            "current_user": self.current_user,
+            "checked": dict(self.checked),
+            "found": dict(self.found),
+            "sudo_nopasswd_entries": list(self.sudo_nopasswd_entries),
+            "suid_exploitable_bins": list(self.exploitable_suid_bins),
+            "capabilities_exploitable": list(self.exploitable_caps),
+            "cron_writable_targets": list(self.cron_writable_targets),
+            "credentials": list(self.credentials_found),
+        }
+
     def summary(self) -> str:
         privilege = "root" if self.current_privilege == 1 else "user"
         found = self.found_vectors() or ["none"]

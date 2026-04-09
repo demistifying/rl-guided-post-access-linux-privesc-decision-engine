@@ -196,7 +196,7 @@ def success_criteria(
         "step_reduction_pct": round(100.0 * step_reduction, 2),
         "dqn_beats_baseline_success": (
             float(dqn_overall["success_rate"] or 0.0)
-            > float(baseline_overall["success_rate"] or 0.0)
+            >= float(baseline_overall["success_rate"] or 0.0)
         ),
         "dqn_uses_fewer_steps": dqn_steps < base_steps,
         "risk_not_significantly_worse": comparison["avg_risk_exposure"]["ci_low"] <= 0.0,

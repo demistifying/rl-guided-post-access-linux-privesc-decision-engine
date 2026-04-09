@@ -195,6 +195,7 @@ def run_agent(
     auto: bool = False,
     max_steps: int = MAX_STEPS,
     log_dir: str = "logs",
+    report_out: Optional[str] = None,
 ) -> None:
     logger = StepLogger(log_dir=log_dir)
     runtime = LiveExecutionController(
@@ -280,6 +281,14 @@ def run_agent(
     print(_c(f"\n[*] Agent loop complete. Log: {logger.path}", GREY))
     _print_state(runtime.current_state)
 
+    if report_out:
+        from postex_agent.cli.reporter import EngagementReporter
+        reporter = EngagementReporter(logger.path)
+        report_md = reporter.generate()
+        with open(report_out, "w", encoding="utf-8") as f:
+            f.write(report_md)
+        print(_c(f"[*] Saved Engagement Report to: {report_out}", GREEN))
+
 
 def _build_argparser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -295,6 +304,7 @@ def _build_argparser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--max-steps", type=int, default=MAX_STEPS)
     parser.add_argument("--log-dir", default="logs")
+    parser.add_argument("--report-out", default=None, help="Save markdown engagement report to this path")
     parser.add_argument("--device", default=None)
 
     parser.add_argument("--host", default="127.0.0.1")
@@ -347,6 +357,7 @@ def main() -> None:
             auto=args.auto,
             max_steps=args.max_steps,
             log_dir=args.log_dir,
+            report_out=args.report_out,
         )
     except KeyboardInterrupt:
         print(_c("\n[*] Interrupted.", YELLOW))

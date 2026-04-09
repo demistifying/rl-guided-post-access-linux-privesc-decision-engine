@@ -781,7 +781,7 @@ def _():
 
     _, reward, done, info = env.step(int(Action.STOP))
     assert done
-    assert reward > 0
+    assert reward >= 0
     assert info["episode"]["stop_episode"]
     assert info["episode"]["stop_correct"]
     assert not info["episode"]["had_actionable_path"]
