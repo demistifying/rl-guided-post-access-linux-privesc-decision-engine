@@ -98,3 +98,15 @@ class EngagementReporter:
                 md.append("> **Result:** Recon Data Extracted ℹ️")
 
         return "\n".join(md)
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) < 3:
+        print("Usage: python -m postex_agent.cli.reporter <input_jsonl> <output_md>")
+        sys.exit(1)
+    
+    reporter = EngagementReporter(sys.argv[1])
+    md_content = reporter.generate()
+    with open(sys.argv[2], "w", encoding="utf-8") as f:
+        f.write(md_content)
+    print(f"[+] Report saved to {sys.argv[2]}")
