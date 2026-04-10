@@ -9,12 +9,9 @@ setup(
     install_requires=[
         "torch>=2.0.0",
         "numpy>=1.24.0",
+        "paramiko>=3.0.0",
+        "pymetasploit3>=1.0.0",
     ],
-    extras_require={
-        "ssh": ["paramiko>=3.0.0"],
-        "msf": ["pymetasploit3>=1.0.0"],
-        "all": ["paramiko>=3.0.0", "pymetasploit3>=1.0.0"],
-    },
     entry_points={
         "console_scripts": [
             "postex-agent=postex_agent.cli.agent_cli:main",

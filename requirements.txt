@@ -2,10 +2,10 @@
 torch>=2.0.0
 numpy>=1.24.0
 
-# Optional: SSH session support
-# paramiko>=3.0.0
+# SSH session support
+paramiko>=3.0.0
 
-# Optional: Metasploit RPC session support
-# pymetasploit3>=1.0.0
+# Metasploit RPC session support
+pymetasploit3>=1.0.0
 
 # Development / testing (no extra deps needed - tests use stdlib + numpy)
