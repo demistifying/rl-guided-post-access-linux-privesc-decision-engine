@@ -136,17 +136,24 @@ class MetasploitSession(BaseSession):
         self._ensure_session()
         wrapped, status_token, done_token = _build_msf_wrapped_command(command)
         
-        kwargs = {"timeout": timeout}
         if type(self._session).__name__ == "MeterpreterSession":
-            kwargs["end_strs"] = [done_token]
+            try:
+                # Meterpreter needs a specific method to drop into an OS shell
+                raw_output = self._session.run_shell_cmd_with_output(
+                    wrapped,
+                    end_strs=[done_token],
+                )
+            except TypeError:
+                raw_output = self._session.run_shell_cmd_with_output(wrapped)
         else:
-            kwargs["terminating_strs"] = [done_token]
-            
-        try:
-            raw_output = self._session.run_with_output(wrapped, **kwargs)
-        except TypeError:
-            # Fallback to no sentinel kwargs if the library version strictly rejects both
-            raw_output = self._session.run_with_output(wrapped, timeout=timeout)
+            try:
+                raw_output = self._session.run_with_output(
+                    wrapped,
+                    terminating_strs=[done_token],
+                    timeout=timeout,
+                )
+            except TypeError:
+                raw_output = self._session.run_with_output(wrapped, timeout=timeout)
             
         return _parse_msf_wrapped_output(raw_output or "", status_token, done_token)
 
