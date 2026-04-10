@@ -135,11 +135,19 @@ class MetasploitSession(BaseSession):
     def _run_once(self, command: str, timeout: int) -> dict:
         self._ensure_session()
         wrapped, status_token, done_token = _build_msf_wrapped_command(command)
-        raw_output = self._session.run_with_output(
-            wrapped,
-            terminating_strs=[done_token],
-            timeout=timeout,
-        )
+        
+        kwargs = {"timeout": timeout}
+        if type(self._session).__name__ == "MeterpreterSession":
+            kwargs["end_strs"] = [done_token]
+        else:
+            kwargs["terminating_strs"] = [done_token]
+            
+        try:
+            raw_output = self._session.run_with_output(wrapped, **kwargs)
+        except TypeError:
+            # Fallback to no sentinel kwargs if the library version strictly rejects both
+            raw_output = self._session.run_with_output(wrapped, timeout=timeout)
+            
         return _parse_msf_wrapped_output(raw_output or "", status_token, done_token)
 
     def run(self, command: str, timeout: int = 30) -> dict:
